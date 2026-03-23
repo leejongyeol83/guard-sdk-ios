@@ -33,9 +33,6 @@ class DetectionReporter {
     /// API 클라이언트 (서버 전송용)
     private let apiClient: SdkApiClient
 
-    /// 세션 토큰
-    private let sessionToken: String
-
     /// 디바이스 ID (리포트 요청에 필수)
     private let deviceId: String
 
@@ -55,12 +52,10 @@ class DetectionReporter {
 
     /// DetectionReporter 초기화
     /// - Parameters:
-    ///   - apiClient: 서버 전송용 API 클라이언트
-    ///   - sessionToken: 인증용 세션 토큰
+    ///   - apiClient: 서버 전송용 API 클라이언트 (API Key 인증)
     ///   - deviceId: 디바이스 고유 식별자
-    init(apiClient: SdkApiClient, sessionToken: String, deviceId: String = UUID().uuidString) {
+    init(apiClient: SdkApiClient, deviceId: String = UUID().uuidString) {
         self.apiClient = apiClient
-        self.sessionToken = sessionToken
         self.deviceId = deviceId
         startFlushTimer()
     }
@@ -119,7 +114,7 @@ class DetectionReporter {
         eventQueue.removeAll()
         queueLock.unlock()
 
-        // 리포트 요청 생성 (sessionToken은 헤더로 전달)
+        // 리포트 요청 생성 (API Key 헤더로 인증)
         let request = DetectionReportRequest(
             deviceId: deviceId,
             platform: "ios",
@@ -131,10 +126,7 @@ class DetectionReporter {
 
         // 지수 백오프 재시도
         for attempt in 0..<DetectionReporter.maxRetry {
-            let result = await apiClient.reportDetections(
-                request: request,
-                sessionToken: sessionToken
-            )
+            let result = await apiClient.reportDetections(request: request)
 
             switch result {
             case .success:
@@ -175,7 +167,7 @@ class DetectionReporter {
         // 오프라인 저장소 클리어 (중복 전송 방지)
         clearOfflineEvents()
 
-        // 리포트 요청 생성 및 전송 (sessionToken은 헤더로 전달)
+        // 리포트 요청 생성 및 전송 (API Key 헤더로 인증)
         let request = DetectionReportRequest(
             deviceId: deviceId,
             platform: "ios",
@@ -185,10 +177,7 @@ class DetectionReporter {
             detections: offlineEvents
         )
 
-        let result = await apiClient.reportDetections(
-            request: request,
-            sessionToken: sessionToken
-        )
+        let result = await apiClient.reportDetections(request: request)
 
         // 전송 실패 시 다시 오프라인 저장
         switch result {

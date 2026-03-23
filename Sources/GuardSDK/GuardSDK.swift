@@ -393,11 +393,8 @@ public final class GuardSDK {
                 self.log(.info, "[서버] 초기화 성공")
 
                 // DetectionReporter 생성 (배치 전송 + 재시도 + 오프라인 저장)
-                // 세션 토큰은 init 응답에 포함되지 않으므로 API Key를 사용
-                let reportToken = self.session?.getToken() ?? self.config?.apiKey ?? ""
                 self.reporter = DetectionReporter(
                     apiClient: client,
-                    sessionToken: reportToken,
                     deviceId: deviceId
                 )
 

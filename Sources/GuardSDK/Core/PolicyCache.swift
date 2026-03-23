@@ -19,6 +19,9 @@ public class PolicyCache {
     /// UserDefaults 인스턴스 (테스트 시 주입 가능)
     private let userDefaults: UserDefaults
 
+    /// 동시 접근 방지를 위한 락
+    private let lock = NSLock()
+
     // MARK: - 초기화
 
     /// PolicyCache를 초기화한다.
@@ -36,6 +39,8 @@ public class PolicyCache {
     /// - Returns: 저장 성공 여부
     @discardableResult
     public func save(_ policy: SecurityPolicy) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
         do {
             let data = try JSONEncoder().encode(policy)
             userDefaults.set(data, forKey: PolicyCache.policyCacheKey)
@@ -49,6 +54,8 @@ public class PolicyCache {
     ///
     /// - Returns: 저장된 보안 정책, 또는 nil
     public func load() -> SecurityPolicy? {
+        lock.lock()
+        defer { lock.unlock() }
         guard let data = userDefaults.data(forKey: PolicyCache.policyCacheKey) else {
             return nil
         }
@@ -56,13 +63,20 @@ public class PolicyCache {
         do {
             return try JSONDecoder().decode(SecurityPolicy.self, from: data)
         } catch {
-            clear()
+            clearInternal()
             return nil
         }
     }
 
     /// 캐시를 삭제한다.
     public func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        clearInternal()
+    }
+
+    /// 락 내부에서 호출되는 삭제 (재진입 방지)
+    private func clearInternal() {
         userDefaults.removeObject(forKey: PolicyCache.policyCacheKey)
     }
 }
