@@ -80,7 +80,7 @@ public class PolicyEngine {
         for type in DetectionType.allCases {
             let enabled = isDetectionEnabled(for: type, policy: policy)
             let action = actionMap[type] ?? .log
-            GuardSDK.shared.log(.debug, "정책 적용: \(type.rawValue) → enabled=\(enabled), action=\(action)")
+            GuardSDK.shared.log(.debug, "[정책] \(type.rawValue) → enabled=\(enabled), action=\(action)")
         }
 
         // 무결성 검증용 기대 해시값 전달

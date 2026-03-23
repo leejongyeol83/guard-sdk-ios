@@ -109,17 +109,15 @@ class SdkApiClient {
 
     /// 탐지 결과 리포트 요청
     /// POST /api/sdk/guard/report
-    /// X-Session-Token 헤더로 인증
+    /// X-API-Key 헤더로 인증
     /// - Parameters:
     ///   - request: 탐지 리포트 요청 모델
-    ///   - sessionToken: 세션 토큰
     /// - Returns: 리포트 응답 결과
     func reportDetections(
-        request: DetectionReportRequest,
-        sessionToken: String
+        request: DetectionReportRequest
     ) async -> ApiResult<DetectionReportResponse> {
         let headers: [String: String] = [
-            HeaderKey.sessionToken: sessionToken,
+            HeaderKey.apiKey: apiKey,
         ]
 
         return await performRequest(
