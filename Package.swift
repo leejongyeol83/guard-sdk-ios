@@ -10,7 +10,10 @@ let package = Package(
     targets: [
         .target(
             name: "GuardSDK",
-            path: "Sources/GuardSDK"
+            path: "Sources/GuardSDK",
+            cSettings: [
+                .headerSearchPath("Native/include"),
+            ]
         ),
         .testTarget(
             name: "GuardSDKTests",
