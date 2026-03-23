@@ -43,6 +43,9 @@ public final class JailbreakDetector: Detector {
         // Trollstore (영구 앱 설치)
         "/var/containers/Bundle/Application/trollstore",
         "/Applications/TrollStore.app",
+        // Filza, unc0ver (schemeAppPaths 매핑 경로)
+        "/Applications/Filza.app",
+        "/Applications/unc0ver.app",
     ]
 
     // MARK: - 의심 URL scheme 목록 (기본 하드코딩 값)
@@ -69,48 +72,45 @@ public final class JailbreakDetector: Detector {
         "trollstore://": "/Applications/TrollStore.app",
     ]
 
-    // MARK: - 동적 시그니처 (서버에서 수신한 값 + 기본값 병합)
+    // MARK: - 서버 정책 (서버 수신 시 하드코딩 대체, 미수신 시 하드코딩 폴백)
 
-    /// 실제 탐지에 사용되는 의심 경로 목록 (기본값 + 서버 동적 시그니처)
+    /// 실제 탐지에 사용되는 의심 경로 목록
     static var suspiciousPaths: [String] = defaultSuspiciousPaths
 
-    /// 실제 탐지에 사용되는 의심 URL scheme 목록 (기본값 + 서버 동적 시그니처)
+    /// 실제 탐지에 사용되는 의심 URL scheme 목록
     static var suspiciousSchemes: [String] = defaultSuspiciousSchemes
 
-    // MARK: - 동적 시그니처 적용
+    // MARK: - 서버 시그니처 적용
 
-    /// 서버에서 수신한 시그니처를 기존 하드코딩 목록에 병합한다.
-    /// 기본 하드코딩 값은 유지하고, 서버 시그니처를 추가로 병합한다.
-    /// 중복 값은 제거된다.
+    /// 서버에서 수신한 시그니처로 교체한다.
+    /// 서버 시그니처가 수신되면 하드코딩 값은 무시하고 서버 값만 사용한다.
+    /// 서버 시그니처가 없으면(미수신) 하드코딩 폴백.
     ///
     /// - Parameter signatures: 서버에서 수신한 시그니처 항목 배열
     static func applySignatures(_ signatures: [SignatureItem]) {
-        var dynamicPaths: [String] = []
-        var dynamicSchemes: [String] = []
+        guard !signatures.isEmpty else { return }
+
+        var serverPaths: [String] = []
+        var serverSchemes: [String] = []
 
         for item in signatures {
             switch item.type {
             case "jailbreak_paths":
-                // 탈옥 의심 파일/디렉토리 경로 추가
-                dynamicPaths.append(item.value)
+                serverPaths.append(item.value)
             case "jailbreak_url_schemes":
-                // 탈옥 관련 URL scheme 추가
-                dynamicSchemes.append(item.value)
+                serverSchemes.append(item.value)
             default:
-                // 알 수 없는 시그니처 유형은 무시
                 break
             }
         }
 
-        // 기본 하드코딩 값에 서버 시그니처를 병합 (중복 제거)
-        if !dynamicPaths.isEmpty {
-            let merged = defaultSuspiciousPaths + dynamicPaths
-            suspiciousPaths = Array(Set(merged))
+        // 서버에서 받은 값으로 교체 (하드코딩 무시)
+        if !serverPaths.isEmpty {
+            suspiciousPaths = serverPaths
         }
 
-        if !dynamicSchemes.isEmpty {
-            let merged = defaultSuspiciousSchemes + dynamicSchemes
-            suspiciousSchemes = Array(Set(merged))
+        if !serverSchemes.isEmpty {
+            suspiciousSchemes = serverSchemes
         }
     }
 

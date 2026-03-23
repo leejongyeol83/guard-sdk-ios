@@ -21,7 +21,7 @@ public final class HookingDetector: Detector {
     // MARK: - 상수 (기본 하드코딩 값)
 
     /// Frida 서버 기본 포트 (하드코딩 기본값)
-    private static let defaultFridaPorts: [UInt16] = [27042]
+    private static let defaultFridaPorts: [UInt16] = [27042, 27043]
 
     /// Frida 관련 프로세스/라이브러리 패턴 (하드코딩 기본값)
     private static let defaultFridaPatterns: [String] = [
@@ -45,7 +45,7 @@ public final class HookingDetector: Detector {
         "libcycript",
     ]
 
-    // MARK: - 동적 시그니처 (서버에서 수신한 값 + 기본값 병합)
+    // MARK: - 서버 정책 (서버 수신 시 하드코딩 대체, 미수신 시 하드코딩 폴백)
 
     /// 실제 탐지에 사용되는 Frida 포트 목록
     static var fridaPorts: [UInt16] = defaultFridaPorts
@@ -62,61 +62,43 @@ public final class HookingDetector: Detector {
     /// 실제 탐지에 사용되는 Cycript 라이브러리 목록
     static var cycriptLibraries: [String] = defaultCycriptLibraries
 
-    // MARK: - 동적 시그니처 적용
+    // MARK: - 서버 시그니처 적용
 
-    /// 서버에서 수신한 시그니처를 기존 하드코딩 목록에 병합한다.
-    /// 기본 하드코딩 값은 유지하고, 서버 시그니처를 추가로 병합한다.
-    /// 중복 값은 제거된다.
+    /// 서버에서 수신한 시그니처로 교체한다.
+    /// 서버 시그니처가 수신되면 하드코딩 값은 무시하고 서버 값만 사용한다.
+    /// 서버 시그니처가 없으면(미수신) 하드코딩 폴백.
     ///
     /// - Parameter signatures: 서버에서 수신한 시그니처 항목 배열
     static func applySignatures(_ signatures: [SignatureItem]) {
-        var dynamicFridaPatterns: [String] = []
-        var dynamicFridaPorts: [UInt16] = []
-        var dynamicDyldHooks: [String] = []
-        var dynamicCycriptLibs: [String] = []
+        guard !signatures.isEmpty else { return }
+
+        var serverFridaPatterns: [String] = []
+        var serverFridaPorts: [UInt16] = []
+        var serverDyldHooks: [String] = []
+        var serverCycriptLibs: [String] = []
 
         for item in signatures {
             switch item.type {
             case "frida_patterns":
-                // Frida 관련 dylib 패턴 추가
-                dynamicFridaPatterns.append(item.value)
+                serverFridaPatterns.append(item.value)
             case "frida_ports":
-                // Frida 포트 번호 추가
                 if let port = UInt16(item.value) {
-                    dynamicFridaPorts.append(port)
+                    serverFridaPorts.append(port)
                 }
             case "dyld_hooks":
-                // 후킹 프레임워크 dylib 패턴 추가
-                dynamicDyldHooks.append(item.value)
+                serverDyldHooks.append(item.value)
             case "cycript_libraries":
-                // Cycript 라이브러리 패턴 추가
-                dynamicCycriptLibs.append(item.value)
+                serverCycriptLibs.append(item.value)
             default:
-                // 알 수 없는 시그니처 유형은 무시
                 break
             }
         }
 
-        // 기본 하드코딩 값에 서버 시그니처를 병합 (중복 제거)
-        if !dynamicFridaPatterns.isEmpty {
-            let merged = defaultFridaPatterns + dynamicFridaPatterns
-            fridaPatterns = Array(Set(merged))
-        }
-
-        if !dynamicFridaPorts.isEmpty {
-            let merged = defaultFridaPorts + dynamicFridaPorts
-            fridaPorts = Array(Set(merged))
-        }
-
-        if !dynamicDyldHooks.isEmpty {
-            let merged = defaultDyldHookPatterns + dynamicDyldHooks
-            dyldHookPatterns = Array(Set(merged))
-        }
-
-        if !dynamicCycriptLibs.isEmpty {
-            let merged = defaultCycriptLibraries + dynamicCycriptLibs
-            cycriptLibraries = Array(Set(merged))
-        }
+        // 서버에서 받은 값으로 교체 (하드코딩 무시)
+        if !serverFridaPatterns.isEmpty { fridaPatterns = serverFridaPatterns }
+        if !serverFridaPorts.isEmpty { fridaPorts = serverFridaPorts }
+        if !serverDyldHooks.isEmpty { dyldHookPatterns = serverDyldHooks }
+        if !serverCycriptLibs.isEmpty { cycriptLibraries = serverCycriptLibs }
     }
 
     // MARK: - 탐지 실행
