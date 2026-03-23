@@ -1,4 +1,4 @@
-// SdkConfig.swift
+// GuardConfig.swift
 // Guard SDK - SDK 초기화 설정
 //
 // SDK를 초기화할 때 필요한 모든 설정 값을 담는 구조체.
@@ -14,11 +14,11 @@ import Foundation
 ///
 /// 사용 예시:
 /// ```swift
-/// let config = SdkConfig.Builder(apiKey: "your-api-key", baseUrl: "https://your-server.com")
+/// let config = GuardConfig.Builder(apiKey: "your-api-key", baseUrl: "https://your-server.com")
 ///     .logLevel(.debug)
 ///     .build()
 /// ```
-public struct SdkConfig {
+public struct GuardConfig {
 
     /// SDK API 키 (필수, 서버에서 발급)
     public let apiKey: String
@@ -94,7 +94,7 @@ public struct SdkConfig {
 
     // MARK: - Builder
 
-    /// SdkConfig를 단계적으로 설정하기 위한 빌더 클래스.
+    /// GuardConfig를 단계적으로 설정하기 위한 빌더 클래스.
     ///
     /// 체이닝 패턴을 지원하며, apiKey는 필수 매개변수이다.
     /// build() 호출 시 precondition으로 필수 값을 검증한다.
@@ -218,18 +218,18 @@ public struct SdkConfig {
             return self
         }
 
-        /// 설정된 값으로 SdkConfig를 생성한다.
+        /// 설정된 값으로 GuardConfig를 생성한다.
         ///
         /// precondition으로 필수 값을 검증하며,
         /// 조건을 충족하지 않으면 런타임 오류가 발생한다.
         ///
-        /// - Returns: 검증 완료된 SdkConfig 인스턴스
-        public func build() -> SdkConfig {
+        /// - Returns: 검증 완료된 GuardConfig 인스턴스
+        public func build() -> GuardConfig {
             // 필수 값 검증
             precondition(!apiKey.isEmpty, "API Key는 필수입니다")
             precondition(detectionInterval >= 10, "탐지 주기는 최소 10초 이상이어야 합니다")
 
-            return SdkConfig(
+            return GuardConfig(
                 apiKey: apiKey,
                 baseUrl: baseUrl,
                 connectTimeoutSec: connectTimeoutSec,

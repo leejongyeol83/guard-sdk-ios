@@ -57,7 +57,7 @@ class SdkApiClient {
     ///   - baseUrl: API 서버 기본 URL
     ///   - apiKey: SDK API 키
     ///   - config: SDK 설정 (타임아웃 등)
-    init(baseUrl: String, apiKey: String, config: SdkConfig) {
+    init(baseUrl: String, apiKey: String, config: GuardConfig) {
         self.baseUrl = baseUrl.hasSuffix("/") ? String(baseUrl.dropLast()) : baseUrl
         self.apiKey = apiKey
 

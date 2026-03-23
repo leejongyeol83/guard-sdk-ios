@@ -11,7 +11,7 @@ import Foundation
 ///
 /// 사용 예시:
 /// ```swift
-/// let config = SdkConfig.Builder(apiKey: "your-key", appId: "com.example.app")
+/// let config = GuardConfig.Builder(apiKey: "your-key", appId: "com.example.app")
 ///     .baseUrl("https://api.example.com")
 ///     .build()
 /// GuardSDK.shared.initialize(config: config, delegate: self)
@@ -48,7 +48,7 @@ public final class GuardSDK {
     // MARK: - 내부 컴포넌트
 
     /// SDK 설정 정보
-    private var config: SdkConfig?
+    private var config: GuardConfig?
 
     /// 세션 토큰 관리 (Keychain 기반)
     private var session: SdkSession?
@@ -85,7 +85,7 @@ public final class GuardSDK {
     ///   - config: SDK 설정 정보 (API 키, 앱 ID 등)
     ///   - delegate: 탐지 결과를 전달받을 delegate (선택)
     ///   - completion: 초기화 완료 시 메인 스레드에서 호출 (성공 여부)
-    public func initialize(config: SdkConfig, delegate: DetectionDelegate? = nil, completion: ((Bool) -> Void)? = nil) {
+    public func initialize(config: GuardConfig, delegate: DetectionDelegate? = nil, completion: ((Bool) -> Void)? = nil) {
         sdkQueue.async { [weak self] in
             guard let self = self else {
                 DispatchQueue.main.async { completion?(false) }
@@ -113,12 +113,12 @@ public final class GuardSDK {
             self.registerDetectors(engine: engine, config: config)
             self.policyEngine = engine
 
-            // 4. SdkConfig 기반 초기 정책 적용 (오프라인 모드의 기본 정책)
+            // 4. GuardConfig 기반 초기 정책 적용 (오프라인 모드의 기본 정책)
             let initialPolicy = self.createPolicyFromConfig(config)
             engine.applyPolicy(initialPolicy)
-            self.log(.info, "SdkConfig 기반 초기 정책 적용 완료")
+            self.log(.info, "GuardConfig 기반 초기 정책 적용 완료")
 
-            // 5. 캐시된 정책이 있으면 덮어쓰기 (SdkConfig보다 우선)
+            // 5. 캐시된 정책이 있으면 덮어쓰기 (GuardConfig보다 우선)
             if let cachedPolicy = self.policyCache?.load() {
                 engine.applyPolicy(cachedPolicy)
                 self.log(.info, "캐시된 보안 정책을 적용했습니다.")
@@ -140,7 +140,7 @@ public final class GuardSDK {
     }
 
     /// [하위 호환] start()는 initialize()와 동일하게 동작한다.
-    public func start(config: SdkConfig, delegate: DetectionDelegate? = nil, completion: ((Bool) -> Void)? = nil) {
+    public func start(config: GuardConfig, delegate: DetectionDelegate? = nil, completion: ((Bool) -> Void)? = nil) {
         initialize(config: config, delegate: delegate, completion: completion)
     }
 
@@ -293,7 +293,7 @@ public final class GuardSDK {
     // MARK: - 탐지기 등록
 
     /// Config 플래그 기반으로 탐지기를 PolicyEngine에 등록한다.
-    private func registerDetectors(engine: PolicyEngine, config: SdkConfig) {
+    private func registerDetectors(engine: PolicyEngine, config: GuardConfig) {
         if config.enableJailbreakDetection {
             engine.registerDetector(JailbreakDetector())
             log(.debug, "탈옥 탐지기 등록")
@@ -589,16 +589,16 @@ public final class GuardSDK {
         }
     }
 
-    // MARK: - SdkConfig → SecurityPolicy 변환
+    // MARK: - GuardConfig → SecurityPolicy 변환
 
-    /// SdkConfig 설정을 기반으로 초기 SecurityPolicy를 생성한다.
+    /// GuardConfig 설정을 기반으로 초기 SecurityPolicy를 생성한다.
     ///
     /// 서버 연결 전이나 오프라인 모드에서 사용되는 기본 정책이다.
-    /// 정책 우선순위: SdkConfig(기본) → 캐시 정책 → 서버 정책(최종)
+    /// 정책 우선순위: GuardConfig(기본) → 캐시 정책 → 서버 정책(최종)
     ///
     /// - Parameter config: SDK 설정 객체
-    /// - Returns: SdkConfig 기반의 SecurityPolicy
-    private func createPolicyFromConfig(_ config: SdkConfig) -> SecurityPolicy {
+    /// - Returns: GuardConfig 기반의 SecurityPolicy
+    private func createPolicyFromConfig(_ config: GuardConfig) -> SecurityPolicy {
         return SecurityPolicy(
             policyId: "config-default",
             jailbreakDetectionEnabled: config.enableJailbreakDetection,
@@ -640,7 +640,7 @@ public final class GuardSDK {
     }
 
     /// SDK 내부 로그를 출력한다.
-    private func log(_ level: SdkConfig.LogLevel, _ message: String) {
+    private func log(_ level: GuardConfig.LogLevel, _ message: String) {
         guard let config = config, level <= config.logLevel else { return }
 
         let prefix: String
