@@ -36,6 +36,9 @@ class DetectionReporter {
     /// 세션 토큰
     private let sessionToken: String
 
+    /// 디바이스 ID (리포트 요청에 필수)
+    private let deviceId: String
+
     /// 이벤트 큐 (배치 축적)
     private var eventQueue: [DetectionEvent] = []
 
@@ -54,9 +57,11 @@ class DetectionReporter {
     /// - Parameters:
     ///   - apiClient: 서버 전송용 API 클라이언트
     ///   - sessionToken: 인증용 세션 토큰
-    init(apiClient: SdkApiClient, sessionToken: String) {
+    ///   - deviceId: 디바이스 고유 식별자
+    init(apiClient: SdkApiClient, sessionToken: String, deviceId: String = UUID().uuidString) {
         self.apiClient = apiClient
         self.sessionToken = sessionToken
+        self.deviceId = deviceId
         startFlushTimer()
     }
 
@@ -116,6 +121,11 @@ class DetectionReporter {
 
         // 리포트 요청 생성 (sessionToken은 헤더로 전달)
         let request = DetectionReportRequest(
+            deviceId: deviceId,
+            platform: "ios",
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+            osVersion: nil,
+            deviceModel: nil,
             detections: eventsToSend
         )
 
@@ -167,6 +177,11 @@ class DetectionReporter {
 
         // 리포트 요청 생성 및 전송 (sessionToken은 헤더로 전달)
         let request = DetectionReportRequest(
+            deviceId: deviceId,
+            platform: "ios",
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+            osVersion: nil,
+            deviceModel: nil,
             detections: offlineEvents
         )
 

@@ -107,37 +107,11 @@ class HeartbeatScheduler {
     }
 
     /// 하트비트 1회 실행
-    /// 서버에 하트비트를 전송하고 정책 업데이트를 확인한다.
+    /// 현재 서버 모델에서 heartbeat API가 제거되어 비활성화 상태.
+    /// 향후 서버에서 heartbeat API를 다시 제공하면 구현을 복원한다.
     func sendHeartbeat() async {
-        guard let token = session.getToken(), !session.isExpired() else {
-            return
-        }
-
-        let request = HeartbeatRequest()
-
-        let result = await apiClient.sendHeartbeat(
-            request: request,
-            sessionToken: token
-        )
-
-        switch result {
-        case .success(let response):
-            // 세션 상태 확인
-            if response.status == "expired" {
-                // 세션 만료 시 토큰 클리어
-                session.clear()
-                return
-            }
-
-            // 정책 업데이트 확인
-            if response.policyUpdated, let newPolicy = response.policy {
-                onPolicyUpdate?(newPolicy)
-            }
-
-        case .error, .networkError:
-            // 하트비트 실패 시 무시 (다음 주기에 재시도)
-            break
-        }
+        // HeartbeatRequest/HeartbeatResponse 모델이 서버에서 제거됨
+        // 서버에서 heartbeat API를 다시 제공할 때까지 비활성화
     }
 
     /// 탐지 결과 요약을 업데이트한다.

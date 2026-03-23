@@ -162,19 +162,31 @@ public class PolicyEngine {
     // MARK: - 동적 시그니처 적용
 
     /// 서버에서 수신한 동적 시그니처를 각 탐지기에 적용한다.
-    /// 탈옥 탐지용 시그니처는 JailbreakDetector에,
-    /// 후킹 탐지용 시그니처는 HookingDetector에 전달된다.
+    /// category별로 분류하여 해당 탐지기에 전달한다.
+    /// - root → JailbreakDetector
+    /// - hooking → HookingDetector
     ///
-    /// - Parameter signatures: 서버에서 수신한 시그니처 응답
-    public func applySignatures(_ signatures: SdkSignaturesResponse) {
+    /// SignatureData는 SignatureItem으로 변환하여 기존 탐지기 인터페이스를 유지한다.
+    ///
+    /// - Parameter signatures: 서버에서 수신한 시그니처 배열
+    public func applySignatures(_ signatures: [SignatureData]) {
+        // category별로 분류
+        let rootSignatures = signatures
+            .filter { $0.category == "root" }
+            .map { SignatureItem(type: $0.checkMethod, value: $0.value) }
+
+        let hookingSignatures = signatures
+            .filter { $0.category == "hooking" }
+            .map { SignatureItem(type: $0.checkMethod, value: $0.value) }
+
         // 탈옥 탐지 시그니처 적용
-        if !signatures.root.isEmpty {
-            JailbreakDetector.applySignatures(signatures.root)
+        if !rootSignatures.isEmpty {
+            JailbreakDetector.applySignatures(rootSignatures)
         }
 
         // 후킹 탐지 시그니처 적용
-        if !signatures.hooking.isEmpty {
-            HookingDetector.applySignatures(signatures.hooking)
+        if !hookingSignatures.isEmpty {
+            HookingDetector.applySignatures(hookingSignatures)
         }
     }
 

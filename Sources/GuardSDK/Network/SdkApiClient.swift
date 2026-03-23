@@ -21,7 +21,7 @@ class SdkApiClient {
     private enum Endpoint {
         static let initialize = "/api/sdk/guard/init"
         static let report = "/api/sdk/guard/report"
-        static let heartbeat = "/api/sdk/guard/heartbeat"
+        // heartbeat는 현재 미사용 (서버 모델에서 제거됨)
     }
 
     /// HTTP 헤더 키
@@ -44,10 +44,10 @@ class SdkApiClient {
     /// URLSession 인스턴스 (타임아웃 설정 적용)
     private let session: URLSession
 
-    /// JSON 인코더 (snake_case 변환)
+    /// JSON 인코더 (camelCase — 서버 응답 형식 일치)
     private let encoder: JSONEncoder
 
-    /// JSON 디코더 (snake_case 변환)
+    /// JSON 디코더 (camelCase — 서버 응답 형식 일치)
     private let decoder: JSONDecoder
 
     // MARK: - 초기화
@@ -68,10 +68,10 @@ class SdkApiClient {
         sessionConfig.waitsForConnectivity = false
         self.session = URLSession(configuration: sessionConfig)
 
-        // JSON 인코더 설정 (CodingKeys가 snake_case 매핑을 담당하므로 별도 strategy 불필요)
+        // JSON 인코더 설정 (서버가 camelCase를 사용하므로 기본 strategy 유지)
         self.encoder = JSONEncoder()
 
-        // JSON 디코더 설정 (CodingKeys가 snake_case 매핑을 담당하므로 별도 strategy 불필요)
+        // JSON 디코더 설정 (서버가 camelCase를 사용하므로 기본 strategy 유지)
         self.decoder = JSONDecoder()
     }
 
@@ -129,27 +129,6 @@ class SdkApiClient {
         )
     }
 
-    /// 하트비트 전송 요청
-    /// POST /api/sdk/guard/heartbeat
-    /// X-Session-Token 헤더로 인증
-    /// - Parameters:
-    ///   - request: 하트비트 요청 모델
-    ///   - sessionToken: 세션 토큰
-    /// - Returns: 하트비트 응답 결과
-    func sendHeartbeat(
-        request: HeartbeatRequest,
-        sessionToken: String
-    ) async -> ApiResult<HeartbeatResponse> {
-        let headers: [String: String] = [
-            HeaderKey.sessionToken: sessionToken,
-        ]
-
-        return await performRequest(
-            endpoint: Endpoint.heartbeat,
-            body: request,
-            additionalHeaders: headers
-        )
-    }
 
     // MARK: - 내부 구현
 
@@ -213,8 +192,12 @@ class SdkApiClient {
             }
 
             // 에러 응답 - 서버 에러 메시지 파싱 시도
-            if let errorResponse = try? decoder.decode(ApiErrorResponse.self, from: data) {
-                return .error(code: errorResponse.code, message: errorResponse.message)
+            if let errorResponse = try? decoder.decode(ApiErrorResponse.self, from: data),
+               let errorDetail = errorResponse.error {
+                return .error(
+                    code: statusCode,
+                    message: errorDetail.message ?? "알 수 없는 서버 오류"
+                )
             }
 
             // 에러 메시지 파싱 실패 시 HTTP 상태 코드 기반 메시지

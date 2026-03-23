@@ -18,18 +18,17 @@ Branch: `main` 또는 태그 `v1.0.0`
 ```swift
 import GuardSDK
 
-// 1. Config 생성
-let config = GuardConfig.Builder(apiKey: "pk_your_api_key", bundleId: "com.am.guard")
-    .serverUrl("https://your-platform.com")
+// 1. Config 생성 (apiKey + serverUrl 필수, bundleId는 자동 감지)
+let config = GuardConfig.Builder(apiKey: "pk_your_api_key", baseUrl: "https://your-platform.com")
     .enableJailbreakDetection(true)
     .enableSimulatorDetection(true)
     .enableDebuggerDetection(true)
     .enableIntegrityCheck(true)
     .enableSignatureCheck(true)
     .enableHookingDetection(true)
-    .enableUsbDebugDetection(false)
-    .enableVpnDetection(false)
-    .enableScreenCaptureBlock(false)
+    .enableUsbDebugDetection(true)
+    .enableVpnDetection(true)
+    .enableScreenCaptureBlock(true)
     .detectionInterval(60) // 60초
     .build()
 
@@ -71,7 +70,6 @@ extension ViewController: GuardDelegate {
 | `GuardSDK.shared.startDetection()` | 주기적 탐지 시작 |
 | `GuardSDK.shared.stopDetection()` | 탐지 중지 |
 | `GuardSDK.shared.runDetection()` | 수동 1회 탐지 |
-| `GuardSDK.shared.refreshPolicy()` | 서버에서 정책 갱신 |
 | `GuardSDK.shared.stop()` | SDK 종료 및 리소스 해제 |
 | `GuardSDK.shared.isInitialized` | 초기화 완료 여부 |
 | `GuardSDK.shared.isDetecting` | 탐지 실행 중 여부 |

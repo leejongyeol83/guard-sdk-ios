@@ -14,8 +14,7 @@ import Foundation
 ///
 /// 사용 예시:
 /// ```swift
-/// let config = SdkConfig.Builder(apiKey: "your-api-key", appId: "com.example.app")
-///     .baseUrl("https://api.example.com")
+/// let config = SdkConfig.Builder(apiKey: "your-api-key", baseUrl: "https://your-server.com")
 ///     .logLevel(.debug)
 ///     .build()
 /// ```
@@ -23,9 +22,6 @@ public struct SdkConfig {
 
     /// SDK API 키 (필수, 서버에서 발급)
     public let apiKey: String
-
-    /// 앱 식별자 - Bundle ID (필수)
-    public let appId: String
 
     /// API 서버 URL (기본: 프로덕션 서버)
     public let baseUrl: String
@@ -40,31 +36,31 @@ public struct SdkConfig {
     /// 서버 정책에 의해 덮어쓰일 수 있다.
     public let detectionInterval: TimeInterval
 
-    /// 탈옥 탐지 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 탈옥 탐지 활성화 (기본: false, 서버 정책이 최우선)
     public let enableJailbreakDetection: Bool
 
-    /// 시뮬레이터 탐지 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 시뮬레이터 탐지 활성화 (기본: false, 서버 정책이 최우선)
     public let enableSimulatorDetection: Bool
 
-    /// 디버거 탐지 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 디버거 탐지 활성화 (기본: false, 서버 정책이 최우선)
     public let enableDebuggerDetection: Bool
 
-    /// 앱 무결성 검증 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 앱 무결성 검증 활성화 (기본: false, 서버 정책이 최우선)
     public let enableIntegrityCheck: Bool
 
-    /// 후킹 프레임워크 탐지 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 후킹 프레임워크 탐지 활성화 (기본: false, 서버 정책이 최우선)
     public let enableHookingDetection: Bool
 
-    /// 코드 서명 검증 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 코드 서명 검증 활성화 (기본: false, 서버 정책이 최우선)
     public let enableSignatureCheck: Bool
 
-    /// USB 디버그 탐지 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// USB 디버그 탐지 활성화 (기본: false, 서버 정책이 최우선)
     public let enableUsbDebugDetection: Bool
 
-    /// VPN 탐지 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// VPN 탐지 활성화 (기본: false, 서버 정책이 최우선)
     public let enableVpnDetection: Bool
 
-    /// 화면 캡처 차단 활성화 (기본: true, 서버 정책이 우선순위 높음)
+    /// 화면 캡처 차단 활성화 (기본: false, 서버 정책이 최우선)
     public let enableScreenCaptureBlock: Bool
 
     /// SDK 내부 로그 레벨 (기본: .warn)
@@ -100,45 +96,35 @@ public struct SdkConfig {
 
     /// SdkConfig를 단계적으로 설정하기 위한 빌더 클래스.
     ///
-    /// 체이닝 패턴을 지원하며, apiKey와 appId는 필수 매개변수이다.
+    /// 체이닝 패턴을 지원하며, apiKey는 필수 매개변수이다.
     /// build() 호출 시 precondition으로 필수 값을 검증한다.
     public class Builder {
 
         // 필수 매개변수
         private let apiKey: String
-        private let appId: String
-
-        // 선택 매개변수 (기본값 설정)
-        private var baseUrl: String = "https://api.guard.io"
+        private let baseUrl: String
         private var connectTimeoutSec: TimeInterval = 10
         private var readTimeoutSec: TimeInterval = 15
         private var detectionInterval: TimeInterval = 60
-        private var enableJailbreakDetection: Bool = true
-        private var enableSimulatorDetection: Bool = true
-        private var enableDebuggerDetection: Bool = true
-        private var enableIntegrityCheck: Bool = true
-        private var enableHookingDetection: Bool = true
-        private var enableSignatureCheck: Bool = true
-        private var enableUsbDebugDetection: Bool = true
-        private var enableVpnDetection: Bool = true
-        private var enableScreenCaptureBlock: Bool = true
+        private var enableJailbreakDetection: Bool = false
+        private var enableSimulatorDetection: Bool = false
+        private var enableDebuggerDetection: Bool = false
+        private var enableIntegrityCheck: Bool = false
+        private var enableHookingDetection: Bool = false
+        private var enableSignatureCheck: Bool = false
+        private var enableUsbDebugDetection: Bool = false
+        private var enableVpnDetection: Bool = false
+        private var enableScreenCaptureBlock: Bool = false
         private var logLevel: LogLevel = .warn
 
         /// 빌더를 초기화한다.
         ///
         /// - Parameters:
         ///   - apiKey: SDK API 키 (필수, 비어있으면 안됨)
-        ///   - appId: 앱 식별자 - Bundle ID (필수, 비어있으면 안됨)
-        public init(apiKey: String, appId: String) {
+        ///   - baseUrl: API 서버 URL (필수)
+        public init(apiKey: String, baseUrl: String) {
             self.apiKey = apiKey
-            self.appId = appId
-        }
-
-        /// API 서버 URL을 설정한다.
-        @discardableResult
-        public func baseUrl(_ url: String) -> Builder {
-            self.baseUrl = url
-            return self
+            self.baseUrl = baseUrl
         }
 
         /// HTTP 연결 타임아웃을 설정한다 (초).
@@ -241,12 +227,10 @@ public struct SdkConfig {
         public func build() -> SdkConfig {
             // 필수 값 검증
             precondition(!apiKey.isEmpty, "API Key는 필수입니다")
-            precondition(!appId.isEmpty, "App ID는 필수입니다")
             precondition(detectionInterval >= 10, "탐지 주기는 최소 10초 이상이어야 합니다")
 
             return SdkConfig(
                 apiKey: apiKey,
-                appId: appId,
                 baseUrl: baseUrl,
                 connectTimeoutSec: connectTimeoutSec,
                 readTimeoutSec: readTimeoutSec,

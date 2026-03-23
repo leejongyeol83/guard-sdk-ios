@@ -62,11 +62,11 @@ public final class GuardSDK {
     /// API 클라이언트
     private var apiClient: SdkApiClient?
 
-    /// 하트비트 스케줄러
-    private var heartbeatScheduler: HeartbeatScheduler?
-
     /// 탐지 결과 리포터 (배치 전송 + 재시도 + 오프라인 저장)
     private var reporter: DetectionReporter?
+
+    /// 현재 디바이스 ID (리포트 전송에 사용)
+    private var currentDeviceId: String?
 
     /// 주기적 탐지 타이머
     private var detectionTimer: Timer?
@@ -127,29 +127,14 @@ public final class GuardSDK {
             // 6. API 클라이언트 초기화
             self.apiClient = SdkApiClient(baseUrl: config.baseUrl, apiKey: config.apiKey, config: config)
 
-            // 7. 하트비트 스케줄러 초기화
-            if let client = self.apiClient, let session = self.session {
-                self.heartbeatScheduler = HeartbeatScheduler(
-                    apiClient: client,
-                    session: session
-                )
-                // 하트비트 정책 업데이트 콜백 연결
-                self.heartbeatScheduler?.onPolicyUpdate = { [weak self] newPolicy in
-                    guard let self = self else { return }
-                    self.policyEngine?.applyPolicy(newPolicy)
-                    self.policyCache?.save(newPolicy)
-                    self.log(.info, "하트비트에서 정책 업데이트 수신")
-                }
-            }
-
-            // 8. 초기화 완료 표시
+            // 7. 초기화 완료 표시
             self._isInitialized = true
             self.log(.info, "SDK 초기화 완료 (apiKey: \(config.apiKey.prefix(8))..., 탐지기: \(engine.detectorCount)개)")
 
-            // 9. 완료 콜백 (메인 스레드)
+            // 8. 완료 콜백 (메인 스레드)
             DispatchQueue.main.async { completion?(true) }
 
-            // 10. 서버에서 세션 토큰 + 정책 수신 (비동기)
+            // 9. 서버에서 정책 수신 (비동기)
             self.fetchPolicyFromServer()
         }
     }
@@ -203,9 +188,6 @@ public final class GuardSDK {
                     self.log(.debug, "화면 캡처 옵저버 시작")
                 }
 
-                // 하트비트 시작
-                self.heartbeatScheduler?.start()
-
                 // 오프라인 저장된 탐지 이벤트 복구 전송
                 if let reporter = self.reporter {
                     Task { await reporter.flushOfflineEvents() }
@@ -231,28 +213,7 @@ public final class GuardSDK {
                 screenDetector.stopObserving()
             }
 
-            // 하트비트 중지
-            self.heartbeatScheduler?.stop()
-
             self.log(.info, "주기적 탐지 중지됨 (SDK 초기화 상태 유지)")
-        }
-    }
-
-    /// 서버에서 최신 정책을 다시 받아온다.
-    ///
-    /// SDK를 재초기화하지 않고 정책만 갱신한다.
-    /// 대시보드에서 정책을 변경한 후 즉시 반영하고 싶을 때 사용한다.
-    public func refreshPolicy() {
-        sdkQueue.async { [weak self] in
-            guard let self = self else { return }
-
-            guard self._isInitialized else {
-                self.log(.warn, "SDK가 초기화되지 않아 정책을 갱신할 수 없습니다.")
-                return
-            }
-
-            self.log(.info, "정책 갱신 요청")
-            self.fetchPolicyFromServer()
         }
     }
 
@@ -288,18 +249,17 @@ public final class GuardSDK {
             DispatchQueue.main.sync {
                 self.detectionTimer?.invalidate()
                 self.detectionTimer = nil
-                self.heartbeatScheduler?.stop()
             }
 
             // 내부 상태 정리
             self.reporter?.shutdown()
             self.reporter = nil
-            self.heartbeatScheduler = nil
             self.apiClient = nil
             self.policyEngine = nil
             self.policyCache = nil
             self.session = nil
             self.config = nil
+            self.currentDeviceId = nil
             self._isInitialized = false
             self._isDetecting = false
 
@@ -318,12 +278,12 @@ public final class GuardSDK {
         sdkQueue.sync {
             self.reporter?.shutdown()
             self.reporter = nil
-            self.heartbeatScheduler = nil
             self.apiClient = nil
             self.policyEngine = nil
             self.policyCache = nil
             self.session = nil
             self.config = nil
+            self.currentDeviceId = nil
             self.delegate = nil
             self._isInitialized = false
             self._isDetecting = false
@@ -414,7 +374,7 @@ public final class GuardSDK {
 
     // MARK: - 서버 통신
 
-    /// 서버에서 세션 토큰과 보안 정책을 수신한다.
+    /// 서버에서 보안 정책을 수신한다.
     private func fetchPolicyFromServer() {
         guard let client = apiClient else { return }
 
@@ -428,13 +388,18 @@ public final class GuardSDK {
             }
         }
 
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+
         let request = SdkInitRequest(
             platform: "ios",
+            appVersion: appVersion,
+            deviceId: deviceId,
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
-            deviceModel: deviceModel,
-            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
-            sdkVersion: "1.0.0"
+            deviceModel: deviceModel
         )
+
+        // deviceId를 저장하여 DetectionReporter에서 사용
+        self.currentDeviceId = deviceId
 
         Task { [weak self] in
             guard let self = self else { return }
@@ -445,52 +410,61 @@ public final class GuardSDK {
 
             switch result {
             case .success(let response):
-                _ = self.session?.saveToken(response.sessionToken, ttl: 3600)
-                self.log(.info, "서버 초기화 성공 (세션 토큰 수신)")
+                let initData = response.data
+                self.log(.info, "서버 초기화 성공")
 
                 // DetectionReporter 생성 (배치 전송 + 재시도 + 오프라인 저장)
-                self.reporter = DetectionReporter(apiClient: client, sessionToken: response.sessionToken)
+                // 세션 토큰은 init 응답에 포함되지 않으므로 API Key를 사용
+                let reportToken = self.session?.getToken() ?? self.config?.apiKey ?? ""
+                self.reporter = DetectionReporter(
+                    apiClient: client,
+                    sessionToken: reportToken,
+                    deviceId: deviceId
+                )
 
-                // 서버 정책을 SDK SecurityPolicy로 변환 및 적용
-                let p = response.policy
+                // 서버 정책(PolicyData)을 SDK SecurityPolicy로 변환 및 적용
+                let p = initData.policy
                 let da = p.detectionActions ?? [:]
+                let defaultAction = "WARN"
                 let serverPolicy = SecurityPolicy(
                     policyId: "server",
-                    jailbreakDetectionEnabled: p.rootDetectionEnabled,
-                    jailbreakDetectionAction: (da["root_detection"] ?? p.onDetectAction).uppercased(),
-                    simulatorDetectionEnabled: p.emulatorDetectionEnabled,
-                    simulatorDetectionAction: (da["emulator_detection"] ?? p.onDetectAction).uppercased(),
-                    debuggerDetectionEnabled: p.debuggerDetectionEnabled,
-                    debuggerDetectionAction: (da["debugger_detection"] ?? p.onDetectAction).uppercased(),
-                    integrityCheckEnabled: p.integrityCheckEnabled,
-                    integrityCheckAction: (da["integrity_check"] ?? p.onDetectAction).uppercased(),
-                    hookingDetectionEnabled: p.hookingDetectionEnabled,
-                    hookingDetectionAction: (da["hooking_detection"] ?? p.onDetectAction).uppercased(),
-                    signatureVerifyEnabled: p.signatureVerifyEnabled ?? true,
-                    signatureVerifyAction: (da["signature_verify"] ?? p.onDetectAction).uppercased(),
-                    usbDebugDetectionEnabled: p.usbDebugDetectionEnabled ?? false,
-                    usbDebugDetectionAction: (da["usb_debug_detection"] ?? p.onDetectAction).uppercased(),
-                    vpnDetectionEnabled: p.vpnDetectionEnabled ?? false,
-                    vpnDetectionAction: (da["vpn_detection"] ?? p.onDetectAction).uppercased(),
-                    screenCaptureBlockEnabled: p.screenCaptureBlockEnabled ?? false,
-                    screenCaptureBlockAction: (da["screen_capture_block"] ?? p.onDetectAction).uppercased(),
-                    expectedBinaryHash: p.expectedApkHash,
-                    expectedSignatureHash: p.expectedSignatureHash
+                    jailbreakDetectionEnabled: p.detectRoot ?? true,
+                    jailbreakDetectionAction: (da["detectRoot"] ?? defaultAction).uppercased(),
+                    simulatorDetectionEnabled: p.detectEmulator ?? true,
+                    simulatorDetectionAction: (da["detectEmulator"] ?? defaultAction).uppercased(),
+                    debuggerDetectionEnabled: p.detectDebugger ?? true,
+                    debuggerDetectionAction: (da["detectDebugger"] ?? defaultAction).uppercased(),
+                    integrityCheckEnabled: p.detectTampering ?? true,
+                    integrityCheckAction: (da["detectTampering"] ?? defaultAction).uppercased(),
+                    hookingDetectionEnabled: p.detectHooking ?? true,
+                    hookingDetectionAction: (da["detectHooking"] ?? defaultAction).uppercased(),
+                    signatureVerifyEnabled: p.detectSignature ?? true,
+                    signatureVerifyAction: (da["detectSignature"] ?? defaultAction).uppercased(),
+                    usbDebugDetectionEnabled: p.detectUsbDebug ?? false,
+                    usbDebugDetectionAction: (da["detectUsbDebug"] ?? defaultAction).uppercased(),
+                    vpnDetectionEnabled: p.detectVpn ?? false,
+                    vpnDetectionAction: (da["detectVpn"] ?? defaultAction).uppercased(),
+                    screenCaptureBlockEnabled: p.detectScreenCapture ?? false,
+                    screenCaptureBlockAction: (da["detectScreenCapture"] ?? defaultAction).uppercased(),
+                    expectedBinaryHash: initData.hashes?.codeHash,
+                    expectedSignatureHash: initData.hashes?.signatureHashes?.first
                 )
                 self.policyEngine?.applyPolicy(serverPolicy)
                 self.policyCache?.save(serverPolicy)
-                self.log(.info, "서버 정책 적용: on_detect=\(p.onDetectAction), actions=\(da)")
+                self.log(.info, "서버 정책 적용: actions=\(da)")
 
                 // 서버에서 동적 시그니처가 포함된 경우 탐지기에 적용
-                if let signatures = response.signatures {
+                if let signatures = initData.signatures, !signatures.isEmpty {
                     self.policyEngine?.applySignatures(signatures)
-                    self.log(.info, "동적 시그니처 적용 완료 (root: \(signatures.root.count)건, hooking: \(signatures.hooking.count)건)")
+                    let rootCount = signatures.filter { $0.category == "root" }.count
+                    let hookingCount = signatures.filter { $0.category == "hooking" }.count
+                    self.log(.info, "동적 시그니처 적용 완료 (root: \(rootCount)건, hooking: \(hookingCount)건)")
                 }
 
                 // 성공 알림 (메인 스레드)
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 정책 수신 완료 (액션: \(p.onDetectAction))")
+                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 정책 수신 완료")
                 }
 
             case .error(_, let message):
@@ -516,8 +490,7 @@ public final class GuardSDK {
     private func reportDetections(_ results: [DetectionResult]) {
         let events = results.filter { $0.detected }.map { result in
             DetectionEventModel(
-                type: result.type.rawValue.lowercased(),
-                timestamp: ISO8601DateFormatter().string(from: Date())
+                type: result.type.rawValue.lowercased()
             )
         }
 
@@ -539,9 +512,19 @@ public final class GuardSDK {
         guard let client = apiClient,
               let sessionToken = session?.getToken() else { return }
 
+        let deviceId = currentDeviceId ?? UUID().uuidString
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+
         Task {
             _ = await client.reportDetections(
-                request: DetectionReportRequest(detections: events),
+                request: DetectionReportRequest(
+                    deviceId: deviceId,
+                    platform: "ios",
+                    appVersion: appVersion,
+                    osVersion: nil,
+                    deviceModel: nil,
+                    detections: events
+                ),
                 sessionToken: sessionToken
             )
         }
@@ -563,8 +546,7 @@ public final class GuardSDK {
             let event = DetectionEventModel(
                 type: "screen_capture",
                 severity: "high",
-                timestamp: ISO8601DateFormatter().string(from: Date()),
-                metadata: ["event": "recording_started"]
+                details: ["event": "recording_started"]
             )
             if let reporter = self.reporter {
                 Task { await reporter.addEventImmediate(event) }
@@ -587,8 +569,7 @@ public final class GuardSDK {
         let event = DetectionEventModel(
             type: "screen_capture",
             severity: "medium",
-            timestamp: ISO8601DateFormatter().string(from: Date()),
-            metadata: ["event": "screenshot_taken"]
+            details: ["event": "screenshot_taken"]
         )
         if let reporter = self.reporter {
             Task { await reporter.addEventImmediate(event) }
