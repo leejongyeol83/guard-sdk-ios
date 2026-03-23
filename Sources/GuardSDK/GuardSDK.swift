@@ -113,7 +113,7 @@ public final class GuardSDK {
             self.registerDetectors(engine: engine, config: config)
             self.policyEngine = engine
 
-            // 4. GuardConfig 기반 초기 정책 적용 (오프라인 모드의 기본 정책)
+            // 4. GuardConfig 기반 초기 정책 적용 (서버 정책 수신 전 기본 정책)
             let initialPolicy = self.createPolicyFromConfig(config)
             engine.applyPolicy(initialPolicy)
             self.log(.info, "GuardConfig 기반 초기 정책 적용 완료")
@@ -121,6 +121,9 @@ public final class GuardSDK {
             // 5. 캐시된 정책이 있으면 덮어쓰기 (GuardConfig보다 우선)
             if let cachedPolicy = self.policyCache?.load() {
                 engine.applyPolicy(cachedPolicy)
+                if !cachedPolicy.detectionSignatures.isEmpty {
+                    engine.applySignatures(cachedPolicy.detectionSignatures)
+                }
                 self.log(.info, "캐시된 보안 정책을 적용했습니다.")
             }
 
@@ -292,51 +295,27 @@ public final class GuardSDK {
 
     // MARK: - 탐지기 등록
 
-    /// Config 플래그 기반으로 탐지기를 PolicyEngine에 등록한다.
+    /// 탐지기 9개 전부 등록 (활성화/비활성화는 PolicyEngine 정책으로 제어)
     private func registerDetectors(engine: PolicyEngine, config: GuardConfig) {
-        if config.enableJailbreakDetection {
-            engine.registerDetector(JailbreakDetector())
-            log(.debug, "탈옥 탐지기 등록")
+        engine.registerDetector(JailbreakDetector())
+        engine.registerDetector(SimulatorDetector())
+        engine.registerDetector(DebuggerDetector())
+        engine.registerDetector(IntegrityDetector())
+        engine.registerDetector(HookingDetector())
+        engine.registerDetector(SignatureDetector())
+        engine.registerDetector(UsbDebugDetector())
+        engine.registerDetector(VpnDetector())
+
+        let screenDetector = ScreenCaptureDetector()
+        screenDetector.onCaptureStateChanged = { [weak self] isCaptured in
+            self?.handleCaptureStateChanged(isCaptured)
         }
-        if config.enableSimulatorDetection {
-            engine.registerDetector(SimulatorDetector())
-            log(.debug, "시뮬레이터 탐지기 등록")
+        screenDetector.onScreenshotTaken = { [weak self] in
+            self?.handleScreenshotTaken()
         }
-        if config.enableDebuggerDetection {
-            engine.registerDetector(DebuggerDetector())
-            log(.debug, "디버거 탐지기 등록")
-        }
-        if config.enableIntegrityCheck {
-            engine.registerDetector(IntegrityDetector())
-            log(.debug, "무결성 탐지기 등록")
-        }
-        if config.enableHookingDetection {
-            engine.registerDetector(HookingDetector())
-            log(.debug, "후킹 탐지기 등록")
-        }
-        if config.enableSignatureCheck {
-            engine.registerDetector(SignatureDetector())
-            log(.debug, "서명 탐지기 등록")
-        }
-        if config.enableUsbDebugDetection {
-            engine.registerDetector(UsbDebugDetector())
-            log(.debug, "USB 디버그 탐지기 등록")
-        }
-        if config.enableVpnDetection {
-            engine.registerDetector(VpnDetector())
-            log(.debug, "VPN 탐지기 등록")
-        }
-        if config.enableScreenCaptureBlock {
-            let screenDetector = ScreenCaptureDetector()
-            screenDetector.onCaptureStateChanged = { [weak self] isCaptured in
-                self?.handleCaptureStateChanged(isCaptured)
-            }
-            screenDetector.onScreenshotTaken = { [weak self] in
-                self?.handleScreenshotTaken()
-            }
-            engine.registerDetector(screenDetector)
-            log(.debug, "화면 캡처 탐지기 등록")
-        }
+        engine.registerDetector(screenDetector)
+
+        log(.debug, "탐지기 \(engine.detectorCount)개 등록 완료")
     }
 
     // MARK: - 탐지 실행 (내부)
@@ -424,42 +403,44 @@ public final class GuardSDK {
 
                 // 서버 정책(PolicyData)을 SDK SecurityPolicy로 변환 및 적용
                 let p = initData.policy
-                let da = p.detectionActions ?? [:]
+                let da = p.detectionActions
                 let defaultAction = "LOG"
                 let serverPolicy = SecurityPolicy(
                     policyId: "server",
-                    jailbreakDetectionEnabled: p.detectRoot ?? true,
-                    jailbreakDetectionAction: (da["detectRoot"] ?? defaultAction).uppercased(),
-                    simulatorDetectionEnabled: p.detectEmulator ?? true,
-                    simulatorDetectionAction: (da["detectEmulator"] ?? defaultAction).uppercased(),
-                    debuggerDetectionEnabled: p.detectDebugger ?? true,
-                    debuggerDetectionAction: (da["detectDebugger"] ?? defaultAction).uppercased(),
-                    integrityCheckEnabled: p.detectTampering ?? true,
-                    integrityCheckAction: (da["detectTampering"] ?? defaultAction).uppercased(),
-                    hookingDetectionEnabled: p.detectHooking ?? true,
-                    hookingDetectionAction: (da["detectHooking"] ?? defaultAction).uppercased(),
-                    signatureVerifyEnabled: p.detectSignature ?? true,
-                    signatureVerifyAction: (da["detectSignature"] ?? defaultAction).uppercased(),
-                    usbDebugDetectionEnabled: p.detectUsbDebug ?? false,
-                    usbDebugDetectionAction: (da["detectUsbDebug"] ?? defaultAction).uppercased(),
-                    vpnDetectionEnabled: p.detectVpn ?? false,
-                    vpnDetectionAction: (da["detectVpn"] ?? defaultAction).uppercased(),
-                    screenCaptureBlockEnabled: p.detectScreenCapture ?? false,
-                    screenCaptureBlockAction: (da["detectScreenCapture"] ?? defaultAction).uppercased(),
+                    jailbreakDetectionEnabled: p.detectRoot,
+                    jailbreakDetectionAction: (da["root"] ?? defaultAction).uppercased(),
+                    simulatorDetectionEnabled: p.detectEmulator,
+                    simulatorDetectionAction: (da["emulator"] ?? defaultAction).uppercased(),
+                    debuggerDetectionEnabled: p.detectDebugger,
+                    debuggerDetectionAction: (da["debugger"] ?? defaultAction).uppercased(),
+                    integrityCheckEnabled: p.detectTampering,
+                    integrityCheckAction: (da["tampering"] ?? defaultAction).uppercased(),
+                    hookingDetectionEnabled: p.detectHooking,
+                    hookingDetectionAction: (da["hooking"] ?? defaultAction).uppercased(),
+                    signatureVerifyEnabled: p.detectSignature,
+                    signatureVerifyAction: (da["signature"] ?? defaultAction).uppercased(),
+                    usbDebugDetectionEnabled: p.detectUsbDebug,
+                    usbDebugDetectionAction: (da["usbDebug"] ?? defaultAction).uppercased(),
+                    vpnDetectionEnabled: p.detectVpn,
+                    vpnDetectionAction: (da["vpn"] ?? defaultAction).uppercased(),
+                    screenCaptureBlockEnabled: p.detectScreenCapture,
+                    screenCaptureBlockAction: (da["screenCapture"] ?? defaultAction).uppercased(),
                     expectedBinaryHash: initData.hashes?.codeHash,
                     expectedSignatureHash: initData.hashes?.signatureHashes?.first
                 )
                 self.policyEngine?.applyPolicy(serverPolicy)
-                self.policyCache?.save(serverPolicy)
                 self.log(.info, "서버 정책 적용: actions=\(da)")
 
-                // 서버에서 동적 시그니처가 포함된 경우 탐지기에 적용
+                // 서버에서 동적 시그니처가 포함된 경우 탐지기에 적용 + 캐시 저장
+                var policyToCache = serverPolicy
                 if let signatures = initData.signatures, !signatures.isEmpty {
                     self.policyEngine?.applySignatures(signatures)
+                    policyToCache.detectionSignatures = signatures
                     let rootCount = signatures["root"]?.values.reduce(0) { $0 + $1.count } ?? 0
                     let hookingCount = signatures["hooking"]?.values.reduce(0) { $0 + $1.count } ?? 0
                     self.log(.info, "동적 시그니처 적용 완료 (root: \(rootCount)건, hooking: \(hookingCount)건)")
                 }
+                self.policyCache?.save(policyToCache)
 
                 // 성공 알림 (메인 스레드)
                 DispatchQueue.main.async { [weak self] in
@@ -636,7 +617,7 @@ public final class GuardSDK {
         } else if detectedResults.contains(where: { $0.action == .log }) {
             return .log
         }
-        return .none
+        return .log
     }
 
     /// SDK 내부 로그를 출력한다.

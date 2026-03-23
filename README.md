@@ -41,22 +41,25 @@ GuardSDK.shared.initialize(config: config, delegate: self) { success in
 }
 
 // 4. Delegate
-extension ViewController: GuardDelegate {
-    func guardSDK(_ sdk: GuardSDK, didDetect result: DetectionResult, action: DetectionAction) {
-        switch action {
+extension ViewController: DetectionDelegate {
+    func guardSDK(_ sdk: GuardSDK, didDetect result: DetectionResult) {
+        switch result.action {
         case .block:
             // 앱 종료 또는 기능 제한
             break
         case .warn:
             // 사용자에게 경고 표시
             break
-        case .logOnly:
+        case .log:
             // 로깅만
+            break
+        case .none:
+            // 무시
             break
         }
     }
 
-    func guardSDK(_ sdk: GuardSDK, didFailWithError error: Error) {
+    func guardSDK(_ sdk: GuardSDK, didEncounterError error: SdkError) {
         // 초기화 실패 처리
     }
 }
@@ -82,7 +85,7 @@ extension ViewController: GuardDelegate {
 | simulator | 시뮬레이터 탐지 (컴파일 플래그, 환경 변수) |
 | debugger | 디버거 연결 탐지 (sysctl P_TRACED, ppid) |
 | integrity | 바이너리 무결성 검증 (__TEXT 해시) |
-| signature | 코드 서명 검증 (프로비저닝 프로파일) |
+| signature | 코드 서명 검증 (Team ID 기반 재서명 탐지) |
 | hooking | 후킹 프레임워크 탐지 (Frida, Cycript, MobileSubstrate, dyld 이미지) |
 | usbDebug | USB 디버그 탐지 |
 | vpn | VPN 연결 탐지 (utun/ppp/ipsec 인터페이스) |

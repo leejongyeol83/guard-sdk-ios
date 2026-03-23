@@ -31,16 +31,30 @@ struct SdkInitData: Codable {
 
 /// 보안 정책 — 서버 응답 필드명 그대로 (camelCase)
 struct PolicyData: Codable {
-    let detectTampering: Bool?
-    let detectSignature: Bool?
-    let detectDebugger: Bool?
-    let detectHooking: Bool?
-    let detectRoot: Bool?
-    let detectEmulator: Bool?
-    let detectUsbDebug: Bool?
-    let detectVpn: Bool?
-    let detectScreenCapture: Bool?
-    let detectionActions: [String: String]?
+    let detectTampering: Bool
+    let detectSignature: Bool
+    let detectDebugger: Bool
+    let detectHooking: Bool
+    let detectRoot: Bool
+    let detectEmulator: Bool
+    let detectUsbDebug: Bool
+    let detectVpn: Bool
+    let detectScreenCapture: Bool
+    let detectionActions: [String: String]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        detectTampering = try container.decodeIfPresent(Bool.self, forKey: .detectTampering) ?? false
+        detectSignature = try container.decodeIfPresent(Bool.self, forKey: .detectSignature) ?? false
+        detectDebugger = try container.decodeIfPresent(Bool.self, forKey: .detectDebugger) ?? false
+        detectHooking = try container.decodeIfPresent(Bool.self, forKey: .detectHooking) ?? false
+        detectRoot = try container.decodeIfPresent(Bool.self, forKey: .detectRoot) ?? false
+        detectEmulator = try container.decodeIfPresent(Bool.self, forKey: .detectEmulator) ?? false
+        detectUsbDebug = try container.decodeIfPresent(Bool.self, forKey: .detectUsbDebug) ?? false
+        detectVpn = try container.decodeIfPresent(Bool.self, forKey: .detectVpn) ?? false
+        detectScreenCapture = try container.decodeIfPresent(Bool.self, forKey: .detectScreenCapture) ?? false
+        detectionActions = try container.decodeIfPresent([String: String].self, forKey: .detectionActions) ?? [:]
+    }
 }
 
 /// 해시 정보
