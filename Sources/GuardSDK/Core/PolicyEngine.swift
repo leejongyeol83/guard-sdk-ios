@@ -169,15 +169,15 @@ public class PolicyEngine {
     /// SignatureData는 SignatureItem으로 변환하여 기존 탐지기 인터페이스를 유지한다.
     ///
     /// - Parameter signatures: 서버에서 수신한 시그니처 배열
-    public func applySignatures(_ signatures: [SignatureData]) {
-        // category별로 분류
-        let rootSignatures = signatures
-            .filter { $0.category == "root" }
-            .map { SignatureItem(type: $0.checkMethod, value: $0.value) }
+    public func applySignatures(_ signatures: [String: [String: [String]]]) {
+        // { "root": { "path": [...], "package": [...] }, "hooking": { "library": [...], "port": [...] } }
+        let rootSignatures = (signatures["root"] ?? [:]).flatMap { (checkMethod, values) in
+            values.map { SignatureItem(type: checkMethod, value: $0) }
+        }
 
-        let hookingSignatures = signatures
-            .filter { $0.category == "hooking" }
-            .map { SignatureItem(type: $0.checkMethod, value: $0.value) }
+        let hookingSignatures = (signatures["hooking"] ?? [:]).flatMap { (checkMethod, values) in
+            values.map { SignatureItem(type: checkMethod, value: $0) }
+        }
 
         // 탈옥 탐지 시그니처 적용
         if !rootSignatures.isEmpty {

@@ -12,7 +12,7 @@ import Foundation
 /// 사용 예시:
 /// ```swift
 /// let config = GuardConfig.Builder(apiKey: "your-key", appId: "com.example.app")
-///     .baseUrl("https://api.example.com")
+///     .serverUrl("https://api.example.com")
 ///     .build()
 /// GuardSDK.shared.initialize(config: config, delegate: self)
 /// GuardSDK.shared.startDetection()
@@ -125,7 +125,7 @@ public final class GuardSDK {
             }
 
             // 6. API 클라이언트 초기화
-            self.apiClient = SdkApiClient(baseUrl: config.baseUrl, apiKey: config.apiKey, config: config)
+            self.apiClient = SdkApiClient(serverUrl: config.serverUrl, apiKey: config.apiKey, config: config)
 
             // 7. 초기화 완료 표시
             self._isInitialized = true
@@ -456,8 +456,8 @@ public final class GuardSDK {
                 // 서버에서 동적 시그니처가 포함된 경우 탐지기에 적용
                 if let signatures = initData.signatures, !signatures.isEmpty {
                     self.policyEngine?.applySignatures(signatures)
-                    let rootCount = signatures.filter { $0.category == "root" }.count
-                    let hookingCount = signatures.filter { $0.category == "hooking" }.count
+                    let rootCount = signatures["root"]?.values.reduce(0) { $0 + $1.count } ?? 0
+                    let hookingCount = signatures["hooking"]?.values.reduce(0) { $0 + $1.count } ?? 0
                     self.log(.info, "동적 시그니처 적용 완료 (root: \(rootCount)건, hooking: \(hookingCount)건)")
                 }
 

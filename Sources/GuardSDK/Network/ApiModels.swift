@@ -26,7 +26,7 @@ struct SdkInitResponse: Codable {
 struct SdkInitData: Codable {
     let policy: PolicyData
     let hashes: HashesData?
-    let signatures: [SignatureData]?
+    let signatures: [String: [String: [String]]]?
 }
 
 /// 보안 정책 — 서버 응답 필드명 그대로 (camelCase)

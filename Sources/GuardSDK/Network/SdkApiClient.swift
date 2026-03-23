@@ -36,7 +36,7 @@ class SdkApiClient {
     // MARK: - 속성
 
     /// API 서버 기본 URL
-    private let baseUrl: String
+    private let serverUrl: String
 
     /// SDK API 키
     private let apiKey: String
@@ -54,11 +54,11 @@ class SdkApiClient {
 
     /// SdkApiClient 초기화
     /// - Parameters:
-    ///   - baseUrl: API 서버 기본 URL
+    ///   - serverUrl: API 서버 기본 URL
     ///   - apiKey: SDK API 키
     ///   - config: SDK 설정 (타임아웃 등)
-    init(baseUrl: String, apiKey: String, config: GuardConfig) {
-        self.baseUrl = baseUrl.hasSuffix("/") ? String(baseUrl.dropLast()) : baseUrl
+    init(serverUrl: String, apiKey: String, config: GuardConfig) {
+        self.serverUrl = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         self.apiKey = apiKey
 
         // URLSession 타임아웃 설정
@@ -145,8 +145,8 @@ class SdkApiClient {
     ) async -> ApiResult<ResponseBody> {
 
         // URL 생성
-        guard let url = URL(string: baseUrl + endpoint) else {
-            return .error(code: -1, message: "잘못된 URL: \(baseUrl + endpoint)")
+        guard let url = URL(string: serverUrl + endpoint) else {
+            return .error(code: -1, message: "잘못된 URL: \(serverUrl + endpoint)")
         }
 
         // URLRequest 설정

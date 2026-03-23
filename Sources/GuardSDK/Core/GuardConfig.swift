@@ -14,7 +14,7 @@ import Foundation
 ///
 /// 사용 예시:
 /// ```swift
-/// let config = GuardConfig.Builder(apiKey: "your-api-key", baseUrl: "https://your-server.com")
+/// let config = GuardConfig.Builder(apiKey: "your-api-key", serverUrl: "https://your-server.com")
 ///     .logLevel(.debug)
 ///     .build()
 /// ```
@@ -24,7 +24,7 @@ public struct GuardConfig {
     public let apiKey: String
 
     /// API 서버 URL (기본: 프로덕션 서버)
-    public let baseUrl: String
+    public let serverUrl: String
 
     /// HTTP 연결 타임아웃 (초, 기본: 10초)
     public let connectTimeoutSec: TimeInterval
@@ -102,7 +102,7 @@ public struct GuardConfig {
 
         // 필수 매개변수
         private let apiKey: String
-        private let baseUrl: String
+        private let serverUrl: String
         private var connectTimeoutSec: TimeInterval = 10
         private var readTimeoutSec: TimeInterval = 15
         private var detectionInterval: TimeInterval = 60
@@ -121,10 +121,10 @@ public struct GuardConfig {
         ///
         /// - Parameters:
         ///   - apiKey: SDK API 키 (필수, 비어있으면 안됨)
-        ///   - baseUrl: API 서버 URL (필수)
-        public init(apiKey: String, baseUrl: String) {
+        ///   - serverUrl: API 서버 URL (필수)
+        public init(apiKey: String, serverUrl: String) {
             self.apiKey = apiKey
-            self.baseUrl = baseUrl
+            self.serverUrl = serverUrl
         }
 
         /// HTTP 연결 타임아웃을 설정한다 (초).
@@ -231,7 +231,7 @@ public struct GuardConfig {
 
             return GuardConfig(
                 apiKey: apiKey,
-                baseUrl: baseUrl,
+                serverUrl: serverUrl,
                 connectTimeoutSec: connectTimeoutSec,
                 readTimeoutSec: readTimeoutSec,
                 detectionInterval: detectionInterval,

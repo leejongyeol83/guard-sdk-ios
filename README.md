@@ -19,7 +19,7 @@ Branch: `main` 또는 태그 `v1.0.0`
 import GuardSDK
 
 // 1. Config 생성 (apiKey + serverUrl 필수, bundleId는 자동 감지)
-let config = GuardConfig.Builder(apiKey: "pk_your_api_key", baseUrl: "https://your-platform.com")
+let config = GuardConfig.Builder(apiKey: "pk_your_api_key", serverUrl: "https://your-platform.com")
     .enableJailbreakDetection(true)
     .enableSimulatorDetection(true)
     .enableDebuggerDetection(true)
