@@ -425,7 +425,7 @@ public final class GuardSDK {
                 // 서버 정책(PolicyData)을 SDK SecurityPolicy로 변환 및 적용
                 let p = initData.policy
                 let da = p.detectionActions ?? [:]
-                let defaultAction = "WARN"
+                let defaultAction = "LOG"
                 let serverPolicy = SecurityPolicy(
                     policyId: "server",
                     jailbreakDetectionEnabled: p.detectRoot ?? true,
@@ -602,23 +602,23 @@ public final class GuardSDK {
         return SecurityPolicy(
             policyId: "config-default",
             jailbreakDetectionEnabled: config.enableJailbreakDetection,
-            jailbreakDetectionAction: "WARN",
+            jailbreakDetectionAction: "LOG",
             simulatorDetectionEnabled: config.enableSimulatorDetection,
-            simulatorDetectionAction: "WARN",
+            simulatorDetectionAction: "LOG",
             debuggerDetectionEnabled: config.enableDebuggerDetection,
-            debuggerDetectionAction: "WARN",
+            debuggerDetectionAction: "LOG",
             integrityCheckEnabled: config.enableIntegrityCheck,
-            integrityCheckAction: "WARN",
+            integrityCheckAction: "LOG",
             hookingDetectionEnabled: config.enableHookingDetection,
-            hookingDetectionAction: "WARN",
+            hookingDetectionAction: "LOG",
             signatureVerifyEnabled: config.enableSignatureCheck,
-            signatureVerifyAction: "WARN",
+            signatureVerifyAction: "LOG",
             usbDebugDetectionEnabled: config.enableUsbDebugDetection,
-            usbDebugDetectionAction: "WARN",
+            usbDebugDetectionAction: "LOG",
             vpnDetectionEnabled: config.enableVpnDetection,
-            vpnDetectionAction: "WARN",
+            vpnDetectionAction: "LOG",
             screenCaptureBlockEnabled: config.enableScreenCaptureBlock,
-            screenCaptureBlockAction: "WARN"
+            screenCaptureBlockAction: "LOG"
         )
     }
 
