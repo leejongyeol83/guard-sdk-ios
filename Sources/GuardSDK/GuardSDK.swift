@@ -471,7 +471,8 @@ public final class GuardSDK {
     private func reportDetections(_ results: [DetectionResult]) {
         let events = results.filter { $0.detected }.map { result in
             DetectionEventModel(
-                type: result.type.rawValue.lowercased()
+                type: result.type.rawValue.lowercased(),
+                details: result.details
             )
         }
 
