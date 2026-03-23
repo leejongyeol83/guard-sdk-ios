@@ -124,8 +124,8 @@ class DetectionReporter {
             deviceId: deviceId,
             platform: "ios",
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-            osVersion: nil,
-            deviceModel: nil,
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            deviceModel: DetectionReporter.deviceModel(),
             detections: eventsToSend
         )
 
@@ -180,8 +180,8 @@ class DetectionReporter {
             deviceId: deviceId,
             platform: "ios",
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-            osVersion: nil,
-            deviceModel: nil,
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            deviceModel: DetectionReporter.deviceModel(),
             detections: offlineEvents
         )
 
@@ -267,5 +267,18 @@ class DetectionReporter {
     /// 오프라인 이벤트 저장소 클리어
     private func clearOfflineEvents() {
         UserDefaults.standard.removeObject(forKey: DetectionReporter.offlineKey)
+    }
+
+    // MARK: - 디바이스 모델
+
+    /// 디바이스 모델명을 반환한다 (예: "iPhone15,2")
+    private static func deviceModel() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        return withUnsafePointer(to: &systemInfo.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                String(cString: $0)
+            }
+        }
     }
 }
