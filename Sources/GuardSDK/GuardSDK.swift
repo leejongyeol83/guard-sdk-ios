@@ -621,7 +621,7 @@ public final class GuardSDK {
     }
 
     /// SDK 내부 로그를 출력한다.
-    private func log(_ level: GuardConfig.LogLevel, _ message: String) {
+    internal func log(_ level: GuardConfig.LogLevel, _ message: String) {
         guard let config = config, level <= config.logLevel else { return }
 
         let prefix: String
