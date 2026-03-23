@@ -1,12 +1,12 @@
 // GuardSDK.swift
-// Anti-Mobile Service iOS SDK - 공개 API 싱글톤 진입점
+// Guard SDK - 공개 API 싱글톤 진입점
 //
 // 호스트 앱에서 SDK를 초기화하고 보안 탐지를 관리하는 메인 클래스.
 // 모든 공개 API는 이 클래스를 통해 접근한다.
 
 import Foundation
 
-/// Anti-Mobile SDK의 공개 진입점.
+/// Guard SDK의 공개 진입점.
 /// 싱글톤 패턴으로 앱 전체에서 하나의 인스턴스만 사용한다.
 ///
 /// 사용 예시:
@@ -171,7 +171,7 @@ public final class GuardSDK {
 
             guard self._isInitialized else {
                 self.log(.warn, "SDK가 초기화되지 않아 탐지를 시작할 수 없습니다.")
-                self.delegate?.antiMobileSDK(
+                self.delegate?.guardSDK(
                     self,
                     didEncounterError: .initializationFailed("SDK가 초기화되지 않았습니다.")
                 )
@@ -398,12 +398,12 @@ public final class GuardSDK {
             guard let self = self else { return }
 
             for result in results where result.detected {
-                self.delegate?.antiMobileSDK(self, didDetect: result)
+                self.delegate?.guardSDK(self, didDetect: result)
             }
 
             // 배치 결과 및 최고 우선순위 액션 전달
             let highestAction = self.determineHighestAction(from: results)
-            self.delegate?.antiMobileSDK(self, didCompleteBatch: results, action: highestAction)
+            self.delegate?.guardSDK(self, didCompleteBatch: results, action: highestAction)
         }
 
         self.log(.debug, "보안 탐지 완료: \(results.count)건 검사, \(results.filter { $0.detected }.count)건 탐지")
@@ -490,23 +490,23 @@ public final class GuardSDK {
                 // 성공 알림 (메인 스레드)
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    self.delegate?.antiMobileSDK(self, didUpdateStatus: "서버 정책 수신 완료 (액션: \(p.onDetectAction))")
+                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 정책 수신 완료 (액션: \(p.onDetectAction))")
                 }
 
             case .error(_, let message):
                 self.log(.error, "서버 초기화 실패: \(message)")
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    self.delegate?.antiMobileSDK(self, didUpdateStatus: "서버 연결 실패: \(message) (오프라인 모드)")
-                    self.delegate?.antiMobileSDK(self, didEncounterError: .networkError(NSError(domain: "GuardSDK", code: -1, userInfo: [NSLocalizedDescriptionKey: "서버 초기화 실패: \(message)"])))
+                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(message) (오프라인 모드)")
+                    self.delegate?.guardSDK(self, didEncounterError: .networkError(NSError(domain: "GuardSDK", code: -1, userInfo: [NSLocalizedDescriptionKey: "서버 초기화 실패: \(message)"])))
                 }
 
             case .networkError(let error):
                 self.log(.error, "네트워크 연결 실패: \(error.localizedDescription)")
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    self.delegate?.antiMobileSDK(self, didUpdateStatus: "서버 연결 실패: \(error.localizedDescription) (오프라인 모드)")
-                    self.delegate?.antiMobileSDK(self, didEncounterError: .networkError(error))
+                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(error.localizedDescription) (오프라인 모드)")
+                    self.delegate?.guardSDK(self, didEncounterError: .networkError(error))
                 }
             }
         }
@@ -574,7 +574,7 @@ public final class GuardSDK {
         // delegate에 상태 알림
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.delegate?.antiMobileSDK(self, didUpdateStatus: "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
+            self.delegate?.guardSDK(self, didUpdateStatus: "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
         }
     }
 
@@ -603,8 +603,8 @@ public final class GuardSDK {
         )
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.delegate?.antiMobileSDK(self, didDetect: result)
-            self.delegate?.antiMobileSDK(self, didUpdateStatus: "스크린샷 촬영 감지")
+            self.delegate?.guardSDK(self, didDetect: result)
+            self.delegate?.guardSDK(self, didUpdateStatus: "스크린샷 촬영 감지")
         }
     }
 

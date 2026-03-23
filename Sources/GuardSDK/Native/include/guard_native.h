@@ -4,8 +4,8 @@
 // [CL-20] 모든 C 네이티브 탐지 함수의 선언을 포함한다.
 // 반환값 규약: 1=탐지, 0=미탐지, -1=오류
 
-#ifndef ANTI_MOBILE_NATIVE_H
-#define ANTI_MOBILE_NATIVE_H
+#ifndef GUARD_NATIVE_H
+#define GUARD_NATIVE_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,4 +39,4 @@ int native_check_fishhook(void);
 int native_check_code_signature(void);
 int native_check_encryption(void);
 
-#endif // ANTI_MOBILE_NATIVE_H
+#endif // GUARD_NATIVE_H

@@ -1,5 +1,5 @@
 // SdkSession.swift
-// Anti-Mobile Service iOS SDK - 세션 토큰 관리 (Keychain 기반)
+// Guard SDK - 세션 토큰 관리 (Keychain 기반)
 //
 // 서버에서 발급된 세션 토큰을 Keychain에 안전하게 저장하고,
 // TTL 기반으로 만료를 관리한다.

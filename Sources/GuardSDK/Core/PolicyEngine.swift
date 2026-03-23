@@ -1,5 +1,5 @@
 // PolicyEngine.swift
-// Anti-Mobile Service iOS SDK - 정책 기반 탐지 실행 엔진
+// Guard SDK - 정책 기반 탐지 실행 엔진
 //
 // 등록된 탐지기(Detector)들을 보안 정책에 따라 실행하고,
 // 탐지 결과에 정책 액션을 매핑하여 반환한다.

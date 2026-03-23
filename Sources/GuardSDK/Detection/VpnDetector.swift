@@ -1,5 +1,5 @@
 // VpnDetector.swift
-// Anti-Mobile Service iOS SDK - VPN 탐지기
+// Guard SDK - VPN 탐지기
 //
 // VPN 연결 상태를 탐지한다.
 // iOS에서는 네트워크 인터페이스와 프록시 설정을 복합적으로 확인하여

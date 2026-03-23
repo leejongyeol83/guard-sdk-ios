@@ -1,5 +1,5 @@
 // SdkConfig.swift
-// Anti-Mobile Service iOS SDK - SDK 초기화 설정
+// Guard SDK - SDK 초기화 설정
 //
 // SDK를 초기화할 때 필요한 모든 설정 값을 담는 구조체.
 // Builder 패턴을 통해 편리하게 설정할 수 있다.

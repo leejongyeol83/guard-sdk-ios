@@ -1,5 +1,5 @@
 // Detector.swift
-// Anti-Mobile Service iOS SDK - 탐지기 프로토콜
+// Guard SDK - 탐지기 프로토콜
 //
 // [CL-09] 모든 보안 탐지 모듈이 채택해야 하는 기본 프로토콜.
 // 프로토콜 지향 설계를 통해 DI 및 테스트 용이성을 확보한다.

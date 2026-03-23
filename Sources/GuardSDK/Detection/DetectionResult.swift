@@ -1,5 +1,5 @@
 // DetectionResult.swift
-// Anti-Mobile Service iOS SDK - 탐지 결과 모델
+// Guard SDK - 탐지 결과 모델
 //
 // [CL-08] 각 탐지기가 반환하는 결과 구조체와,
 // 탐지 유형/액션을 정의하는 열거형을 포함한다.

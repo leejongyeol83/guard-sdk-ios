@@ -1,5 +1,5 @@
 // UsbDebugDetector.swift
-// Anti-Mobile Service iOS SDK - USB 디버그 탐지기
+// Guard SDK - USB 디버그 탐지기
 //
 // USB 디버깅 연결 환경을 탐지한다.
 // iOS에서는 직접적인 USB 디버깅 탐지 API가 제한적이므로,

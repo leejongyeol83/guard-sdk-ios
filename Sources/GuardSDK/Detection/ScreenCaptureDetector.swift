@@ -1,5 +1,5 @@
 // ScreenCaptureDetector.swift
-// Anti-Mobile Service iOS SDK - 화면 캡처 탐지기
+// Guard SDK - 화면 캡처 탐지기
 //
 // iOS에서는 화면 캡처를 완전히 차단할 수 없으므로,
 // 녹화/미러링 상태를 감지하고 스크린샷 촬영을 사후 감지한다.

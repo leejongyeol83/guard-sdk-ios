@@ -1,5 +1,5 @@
 // PolicyCache.swift
-// Anti-Mobile Service iOS SDK - 보안 정책 로컬 캐시
+// Guard SDK - 보안 정책 로컬 캐시
 //
 // 서버에서 수신한 보안 정책을 로컬에 캐싱하여,
 // 서버 통신 실패 시에도 마지막 유효한 정책으로 동작할 수 있게 한다.

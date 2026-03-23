@@ -1,5 +1,5 @@
 // DetectionDelegate.swift
-// Anti-Mobile Service iOS SDK - 탐지 콜백 프로토콜
+// Guard SDK - 탐지 콜백 프로토콜
 //
 // 호스트 앱에서 보안 탐지 결과를 수신하기 위한 delegate 프로토콜.
 // SDK의 비동기 탐지 결과와 오류를 호스트 앱에 전달한다.
@@ -16,7 +16,7 @@ import Foundation
 /// 사용 예시:
 /// ```swift
 /// class AppDelegate: UIResponder, DetectionDelegate {
-///     func antiMobileSDK(_ sdk: GuardSDK, didDetect result: DetectionResult) {
+///     func guardSDK(_ sdk: GuardSDK, didDetect result: DetectionResult) {
 ///         if result.action == .block {
 ///             // 앱 종료 또는 기능 차단 처리
 ///         }
@@ -33,7 +33,7 @@ public protocol DetectionDelegate: AnyObject {
     /// - Parameters:
     ///   - sdk: GuardSDK 싱글톤 인스턴스
     ///   - result: 탐지 결과 (유형, 탐지 여부, 신뢰도, 상세 정보)
-    func antiMobileSDK(_ sdk: GuardSDK, didDetect result: DetectionResult)
+    func guardSDK(_ sdk: GuardSDK, didDetect result: DetectionResult)
 
     /// 탐지 사이클이 완료되었을 때 전체 결과와 정책 액션을 전달한다 (배치).
     ///
@@ -45,7 +45,7 @@ public protocol DetectionDelegate: AnyObject {
     ///   - sdk: GuardSDK 싱글톤 인스턴스
     ///   - results: 전체 탐지 결과 배열
     ///   - action: 정책 기반으로 결정된 최고 우선순위 액션
-    func antiMobileSDK(_ sdk: GuardSDK, didCompleteBatch results: [DetectionResult], action: DetectAction)
+    func guardSDK(_ sdk: GuardSDK, didCompleteBatch results: [DetectionResult], action: DetectAction)
 
     /// SDK 내부 오류가 발생했을 때 호출된다.
     ///
@@ -55,7 +55,7 @@ public protocol DetectionDelegate: AnyObject {
     /// - Parameters:
     ///   - sdk: GuardSDK 싱글톤 인스턴스
     ///   - error: 발생한 SDK 오류
-    func antiMobileSDK(_ sdk: GuardSDK, didEncounterError error: SdkError)
+    func guardSDK(_ sdk: GuardSDK, didEncounterError error: SdkError)
 
     /// SDK 상태가 변경되었을 때 호출된다.
     ///
@@ -64,7 +64,7 @@ public protocol DetectionDelegate: AnyObject {
     /// - Parameters:
     ///   - sdk: GuardSDK 싱글톤 인스턴스
     ///   - message: 상태 메시지
-    func antiMobileSDK(_ sdk: GuardSDK, didUpdateStatus message: String)
+    func guardSDK(_ sdk: GuardSDK, didUpdateStatus message: String)
 }
 
 // MARK: - 기본 구현 (선택적 메서드)
@@ -74,12 +74,12 @@ public protocol DetectionDelegate: AnyObject {
 public extension DetectionDelegate {
 
     /// 배치 결과 콜백의 기본 구현 (빈 구현).
-    func antiMobileSDK(_ sdk: GuardSDK, didCompleteBatch results: [DetectionResult], action: DetectAction) {
+    func guardSDK(_ sdk: GuardSDK, didCompleteBatch results: [DetectionResult], action: DetectAction) {
         // 기본 구현: 아무 동작 없음
     }
 
     /// 상태 업데이트 콜백의 기본 구현 (빈 구현).
-    func antiMobileSDK(_ sdk: GuardSDK, didUpdateStatus message: String) {
+    func guardSDK(_ sdk: GuardSDK, didUpdateStatus message: String) {
         // 기본 구현: 아무 동작 없음
     }
 }
