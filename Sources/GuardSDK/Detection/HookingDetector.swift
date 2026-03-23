@@ -160,6 +160,10 @@ public final class HookingDetector: Detector {
         let detected = detectedCount > 0
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [후킹 탐지] fridaPort=\(checks["frida_port"] == "detected"), cycript=\(checks["cycript"] == "detected"), dyldHooks=\(dyldHooksResult == 1), fridaDylib=\(fridaMapsResult == 1), inlineHook=\(inlineHookResult == 1), fishhook=\(fishhookResult == 1) → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .hooking,
             detected: detected,

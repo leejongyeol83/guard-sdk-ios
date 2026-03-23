@@ -62,6 +62,10 @@ public final class SimulatorDetector: Detector {
         let detected = detectedCount > 0
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [시뮬레이터 탐지] compileFlag=\(checks["compile_flag"] == "detected"), envSimulator=\(checks["env_simulator"] == "detected"), architecture=\(checks["architecture"] == "detected"), machineModel=\(checks["machine_model"] == "detected") → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .simulator,
             detected: detected,

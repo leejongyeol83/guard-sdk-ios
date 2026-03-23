@@ -94,7 +94,7 @@ public final class GuardSDK {
 
             // 이미 초기화된 경우 중복 방지
             guard !self._isInitialized else {
-                self.log(.warn, "SDK가 이미 초기화되어 있습니다. stop() 후 다시 호출하세요.")
+                self.log(.warn, "[초기화] SDK가 이미 초기화되어 있습니다. stop() 후 다시 호출하세요.")
                 DispatchQueue.main.async { completion?(true) }
                 return
             }
@@ -116,7 +116,7 @@ public final class GuardSDK {
             // 4. GuardConfig 기반 초기 정책 적용 (서버 정책 수신 전 기본 정책)
             let initialPolicy = self.createPolicyFromConfig(config)
             engine.applyPolicy(initialPolicy)
-            self.log(.info, "GuardConfig 기반 초기 정책 적용 완료")
+            self.log(.info, "[정책] GuardConfig 기반 초기 정책 적용 완료")
 
             // 5. 캐시된 정책이 있으면 덮어쓰기 (GuardConfig보다 우선)
             if let cachedPolicy = self.policyCache?.load() {
@@ -124,7 +124,7 @@ public final class GuardSDK {
                 if !cachedPolicy.detectionSignatures.isEmpty {
                     engine.applySignatures(cachedPolicy.detectionSignatures)
                 }
-                self.log(.info, "캐시된 보안 정책을 적용했습니다.")
+                self.log(.info, "[정책] 캐시된 보안 정책 적용 완료")
             }
 
             // 6. API 클라이언트 초기화
@@ -132,7 +132,7 @@ public final class GuardSDK {
 
             // 7. 초기화 완료 표시
             self._isInitialized = true
-            self.log(.info, "SDK 초기화 완료 (apiKey: \(config.apiKey.prefix(8))..., 탐지기: \(engine.detectorCount)개)")
+            self.log(.info, "[초기화] SDK 초기화 완료 (apiKey: \(config.apiKey.prefix(8))..., 탐지기: \(engine.detectorCount)개)")
 
             // 8. 완료 콜백 (메인 스레드)
             DispatchQueue.main.async { completion?(true) }
@@ -158,7 +158,7 @@ public final class GuardSDK {
             guard let self = self else { return }
 
             guard self._isInitialized else {
-                self.log(.warn, "SDK가 초기화되지 않아 탐지를 시작할 수 없습니다.")
+                self.log(.warn, "[탐지] SDK가 초기화되지 않아 탐지를 시작할 수 없습니다.")
                 self.delegate?.guardSDK(
                     self,
                     didEncounterError: .initializationFailed("SDK가 초기화되지 않았습니다.")
@@ -167,7 +167,7 @@ public final class GuardSDK {
             }
 
             guard !self._isDetecting else {
-                self.log(.warn, "탐지가 이미 실행 중입니다.")
+                self.log(.warn, "[탐지] 탐지가 이미 실행 중입니다.")
                 return
             }
 
@@ -183,12 +183,12 @@ public final class GuardSDK {
                     self?.sdkQueue.async { self?.performDetection() }
                 }
                 self._isDetecting = true
-                self.log(.info, "주기적 탐지 시작 (주기: \(interval)초)")
+                self.log(.info, "[탐지] 주기적 탐지 시작 (주기: \(interval)초)")
 
                 // 화면 캡처 옵저버 시작
                 if let screenDetector = self.policyEngine?.getDetector(for: .screenCapture) as? ScreenCaptureDetector {
                     screenDetector.startObserving()
-                    self.log(.debug, "화면 캡처 옵저버 시작")
+                    self.log(.debug, "[화면보호] 캡처 옵저버 시작")
                 }
 
                 // 오프라인 저장된 탐지 이벤트 복구 전송
@@ -216,7 +216,7 @@ public final class GuardSDK {
                 screenDetector.stopObserving()
             }
 
-            self.log(.info, "주기적 탐지 중지됨 (SDK 초기화 상태 유지)")
+            self.log(.info, "[탐지] 주기적 탐지 중지됨 (SDK 초기화 상태 유지)")
         }
     }
 
@@ -239,7 +239,7 @@ public final class GuardSDK {
             guard let self = self else { return }
 
             guard self._isInitialized else {
-                self.log(.warn, "SDK가 초기화되지 않았습니다.")
+                self.log(.warn, "[초기화] SDK가 초기화되지 않았습니다.")
                 return
             }
 
@@ -266,7 +266,7 @@ public final class GuardSDK {
             self._isInitialized = false
             self._isDetecting = false
 
-            self.log(.info, "SDK가 정상 종료되었습니다.")
+            self.log(.info, "[초기화] SDK 정상 종료 완료")
         }
     }
 
@@ -323,11 +323,11 @@ public final class GuardSDK {
     /// 탐지를 1회 실행하고 결과를 delegate에 전달한다.
     private func performDetection() {
         guard self._isInitialized, let engine = self.policyEngine else {
-            self.log(.warn, "SDK가 초기화되지 않아 탐지를 실행할 수 없습니다.")
+            self.log(.warn, "[탐지] SDK가 초기화되지 않아 탐지를 실행할 수 없습니다.")
             return
         }
 
-        self.log(.debug, "보안 탐지 실행 시작")
+        self.log(.debug, "[탐지] 보안 탐지 실행 시작")
 
         // 정책 엔진을 통해 탐지 실행
         let results = engine.runDetection()
@@ -345,7 +345,7 @@ public final class GuardSDK {
             self.delegate?.guardSDK(self, didCompleteBatch: results, action: highestAction)
         }
 
-        self.log(.debug, "보안 탐지 완료: \(results.count)건 검사, \(results.filter { $0.detected }.count)건 탐지")
+        self.log(.debug, "[탐지] 보안 탐지 완료: \(results.count)건 검사, \(results.filter { $0.detected }.count)건 탐지")
 
         // 탐지 결과를 서버에 리포트
         self.reportDetections(results)
@@ -390,7 +390,7 @@ public final class GuardSDK {
             switch result {
             case .success(let response):
                 let initData = response.data
-                self.log(.info, "서버 초기화 성공")
+                self.log(.info, "[서버] 초기화 성공")
 
                 // DetectionReporter 생성 (배치 전송 + 재시도 + 오프라인 저장)
                 // 세션 토큰은 init 응답에 포함되지 않으므로 API Key를 사용
@@ -429,7 +429,7 @@ public final class GuardSDK {
                     expectedSignatureHash: initData.hashes?.signatureHashes?.first
                 )
                 self.policyEngine?.applyPolicy(serverPolicy)
-                self.log(.info, "서버 정책 적용: actions=\(da)")
+                self.log(.info, "[정책] 서버 정책 적용 완료: actions=\(da)")
 
                 // 서버에서 동적 시그니처가 포함된 경우 탐지기에 적용 + 캐시 저장
                 var policyToCache = serverPolicy
@@ -438,7 +438,7 @@ public final class GuardSDK {
                     policyToCache.detectionSignatures = signatures
                     let rootCount = signatures["root"]?.values.reduce(0) { $0 + $1.count } ?? 0
                     let hookingCount = signatures["hooking"]?.values.reduce(0) { $0 + $1.count } ?? 0
-                    self.log(.info, "동적 시그니처 적용 완료 (root: \(rootCount)건, hooking: \(hookingCount)건)")
+                    self.log(.info, "[정책] 동적 시그니처 적용 완료 (root: \(rootCount)건, hooking: \(hookingCount)건)")
                 }
                 self.policyCache?.save(policyToCache)
 
@@ -449,7 +449,7 @@ public final class GuardSDK {
                 }
 
             case .error(_, let message):
-                self.log(.error, "서버 초기화 실패: \(message)")
+                self.log(.error, "[서버] 초기화 실패: \(message)")
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(message) (오프라인 모드)")
@@ -457,7 +457,7 @@ public final class GuardSDK {
                 }
 
             case .networkError(let error):
-                self.log(.error, "네트워크 연결 실패: \(error.localizedDescription)")
+                self.log(.error, "[서버] 네트워크 연결 실패: \(error.localizedDescription)")
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(error.localizedDescription) (오프라인 모드)")
@@ -490,8 +490,7 @@ public final class GuardSDK {
         }
 
         // 폴백: 직접 전송 (reporter 미생성 시)
-        guard let client = apiClient,
-              let sessionToken = session?.getToken() else { return }
+        guard let client = apiClient else { return }
 
         let deviceId = currentDeviceId ?? UUID().uuidString
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
@@ -502,11 +501,10 @@ public final class GuardSDK {
                     deviceId: deviceId,
                     platform: "ios",
                     appVersion: appVersion,
-                    osVersion: nil,
-                    deviceModel: nil,
+                    osVersion: UIDevice.current.systemVersion,
+                    deviceModel: UIDevice.current.model,
                     detections: events
-                ),
-                sessionToken: sessionToken
+                )
             )
         }
     }
@@ -526,7 +524,6 @@ public final class GuardSDK {
             // 녹화 시작 → 즉시 서버에 리포트
             let event = DetectionEventModel(
                 type: "screen_capture",
-                severity: "high",
                 details: ["event": "recording_started"]
             )
             if let reporter = self.reporter {
@@ -545,11 +542,10 @@ public final class GuardSDK {
     ///
     /// iOS에서 스크린샷을 차단할 수 없으므로, 촬영 후 서버에 리포트한다.
     private func handleScreenshotTaken() {
-        log(.warn, "스크린샷 촬영 감지 (사후)")
+        log(.warn, "[화면보호] 스크린샷 촬영 감지 (사후)")
 
         let event = DetectionEventModel(
             type: "screen_capture",
-            severity: "medium",
             details: ["event": "screenshot_taken"]
         )
         if let reporter = self.reporter {

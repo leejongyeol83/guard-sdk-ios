@@ -58,6 +58,10 @@ class ScreenCaptureDetector: Detector {
         let detected = isCaptured
         let confidence: Float = isCaptured ? 1.0 : 0.0
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [화면보호 탐지] screenCaptured=\(isCaptured) → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .screenCapture,
             detected: detected,

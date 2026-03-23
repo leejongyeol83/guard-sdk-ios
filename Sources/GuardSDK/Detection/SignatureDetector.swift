@@ -51,6 +51,9 @@ public final class SignatureDetector: Detector {
         if let currentTeamId = currentTeamId {
             if currentTeamId == expectedHash {
                 checks["signature_verify"] = "match"
+                #if DEBUG
+                print("[GuardSDK DEBUG] [서명 탐지] teamIdMatch=true, currentTeamId=\(currentTeamId), hasExpectedHash=true → detected=false (confidence=0.0)")
+                #endif
                 return DetectionResult(
                     type: .signature,
                     detected: false,
@@ -61,6 +64,9 @@ public final class SignatureDetector: Detector {
                 )
             } else {
                 checks["signature_verify"] = "mismatch"
+                #if DEBUG
+                print("[GuardSDK DEBUG] [서명 탐지] teamIdMatch=false, currentTeamId=\(currentTeamId), expectedTeamId=\(expectedHash) → detected=true (confidence=1.0)")
+                #endif
                 return DetectionResult(
                     type: .signature,
                     detected: true,
@@ -73,6 +79,9 @@ public final class SignatureDetector: Detector {
         } else {
             // Team ID 추출 실패
             checks["signature_verify"] = "extraction_failed"
+            #if DEBUG
+            print("[GuardSDK DEBUG] [서명 탐지] teamIdExtraction=failed, hasExpectedHash=true → detected=true (confidence=0.8)")
+            #endif
             return DetectionResult(
                 type: .signature,
                 detected: true,

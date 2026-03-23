@@ -59,6 +59,10 @@ class VpnDetector: Detector {
         let detected = hasVpnConfig || hasVpnInterface || hasUtunWithScoped
         let confidence: Float = detected ? (hasVpnConfig && hasVpnInterface ? 1.0 : 0.7) : 0.0
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [VPN 탐지] vpnConfig=\(hasVpnConfig), vpnInterface=\(hasVpnInterface), utunWithScoped=\(hasUtunWithScoped) → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .vpn,
             detected: detected,

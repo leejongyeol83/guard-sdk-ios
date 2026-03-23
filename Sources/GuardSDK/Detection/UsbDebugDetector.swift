@@ -55,6 +55,10 @@ class UsbDebugDetector: Detector {
         // sysctl + Xcode 환경 모두 감지되어야 탐지로 판정 (오탐 방지)
         let detected = isTraced && xcodeEnv
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [USB 디버그 탐지] sysctlTraced=\(isTraced), xcodeEnv=\(xcodeEnv), lockdownd=\(lockdownd) → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .usbDebug,
             detected: detected,

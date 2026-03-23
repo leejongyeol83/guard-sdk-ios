@@ -95,12 +95,10 @@ struct DetectionReportRequest: Codable {
 /// 개별 탐지 이벤트
 struct DetectionEventModel: Codable {
     let type: String
-    let severity: String
     let details: [String: String]?
 
-    init(type: String, severity: String = "medium", details: [String: String]? = nil) {
+    init(type: String, details: [String: String]? = nil) {
         self.type = type
-        self.severity = severity
         self.details = details
     }
 }

@@ -54,6 +54,10 @@ public final class DebuggerDetector: Detector {
         let detected = detectedCount > 0
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [디버거 탐지] dyldInsert=\(checks["dyld_insert"] == "detected"), sysctlTraced=\(sysctlResult == 1), ptraceDeny=\(ptraceResult == 1), exceptionPorts=\(exceptionResult == 1) → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .debugger,
             detected: detected,

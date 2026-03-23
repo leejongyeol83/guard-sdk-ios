@@ -30,6 +30,12 @@ static const char *jailbreak_dylibs[] = {
     "substitute",
     "Cephei",
     "rocketbootstrap",
+    /* Dopamine/ElleKit (iOS 15-16 rootless 탈옥) */
+    "ellekit",
+    "dopamine",
+    /* KernBypass — 탈옥 탐지 우회 트윅 */
+    "kernbypass",
+    "libkrw",
     NULL
 };
 

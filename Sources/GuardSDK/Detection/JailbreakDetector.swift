@@ -32,6 +32,17 @@ public final class JailbreakDetector: Detector {
         "/var/jb",
         "/var/binpack",
         "/Applications/Zebra.app",
+        // Dopamine (iOS 15-16.6.1 탈옥) — rootless 방식
+        "/var/jb/.installed_dopamine",
+        "/var/jb/basebin",
+        // palera1n (iOS 15-17 탈옥)
+        "/cores/binpack",
+        "/cores/jbloader",
+        // KernBypass — 탈옥 탐지 우회 트윅 자체 탐지
+        "/var/mobile/Library/KernBypass",
+        // Trollstore (영구 앱 설치)
+        "/var/containers/Bundle/Application/trollstore",
+        "/Applications/TrollStore.app",
     ]
 
     // MARK: - 의심 URL scheme 목록 (기본 하드코딩 값)
@@ -45,6 +56,7 @@ public final class JailbreakDetector: Detector {
         "zbra://",
         "filza://",
         "undecimus://",
+        "trollstore://",
     ]
 
     /// scheme에 대응하는 앱 경로 매핑 (FileManager 기반 대체 검사)
@@ -54,6 +66,7 @@ public final class JailbreakDetector: Detector {
         "zbra://": "/Applications/Zebra.app",
         "filza://": "/Applications/Filza.app",
         "undecimus://": "/Applications/unc0ver.app",
+        "trollstore://": "/Applications/TrollStore.app",
     ]
 
     // MARK: - 동적 시그니처 (서버에서 수신한 값 + 기본값 병합)
@@ -132,6 +145,10 @@ public final class JailbreakDetector: Detector {
         let detectedCount = checks.values.filter { $0.hasPrefix("detected") }.count
         let detected = detectedCount > 0
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
+
+        #if DEBUG
+        print("[GuardSDK DEBUG] [탈옥 탐지] suspiciousPaths=\(checks["suspicious_paths"]?.hasPrefix("detected") ?? false), urlSchemes=\(checks["url_schemes"] == "detected"), sandboxWrite=\(checks["sandbox_write"] == "detected"), fork=\(forkResult == 1), dyld=\(dyldResult == 1), symlink=\(symlinkResult == 1) → detected=\(detected) (confidence=\(confidence))")
+        #endif
 
         return DetectionResult(
             type: .jailbreak,

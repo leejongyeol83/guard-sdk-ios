@@ -70,6 +70,10 @@ public final class IntegrityDetector: Detector {
         let detected = detectedCount > 0
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
 
+        #if DEBUG
+        print("[GuardSDK DEBUG] [무결성 탐지] mobileprovision=\(checks["mobileprovision"]?.hasPrefix("detected") ?? false), infoPlist=\(checks["info_plist"] == "detected"), binaryHash=\(checks["binary_hash"]?.hasPrefix("hash:") ?? false), codeSignature=\(checks["code_signature"] ?? "N/A"), encryption=\(checks["encryption_info"] ?? "N/A") → detected=\(detected) (confidence=\(confidence))")
+        #endif
+
         return DetectionResult(
             type: .integrity,
             detected: detected,
