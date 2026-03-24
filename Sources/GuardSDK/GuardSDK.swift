@@ -376,7 +376,7 @@ public final class GuardSDK {
             platform: "ios",
             appVersion: appVersion,
             deviceId: deviceId,
-            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            osVersion: UIDevice.current.systemVersion,
             deviceModel: deviceModel
         )
 
