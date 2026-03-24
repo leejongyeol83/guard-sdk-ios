@@ -9,11 +9,14 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "GuardNative",
+            path: "Sources/GuardNative",
+            publicHeadersPath: "include"
+        ),
+        .target(
             name: "GuardSDK",
-            path: "Sources/GuardSDK",
-            cSettings: [
-                .headerSearchPath("Native/include"),
-            ]
+            dependencies: ["GuardNative"],
+            path: "Sources/GuardSDK"
         ),
         .testTarget(
             name: "GuardSDKTests",
