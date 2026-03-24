@@ -188,6 +188,9 @@ public final class GuardSDK {
                 self._isDetecting = true
                 self.log(.info, "[탐지] 주기적 탐지 시작 (주기: \(interval)초)")
 
+                // 주기적 탐지 시 리포터 자동 플러시 타이머도 시작
+                self.reporter?.startAutoFlush()
+
                 // 화면 캡처 옵저버 시작
                 if let screenDetector = self.policyEngine?.getDetector(for: .screenCapture) as? ScreenCaptureDetector {
                     screenDetector.startObserving()

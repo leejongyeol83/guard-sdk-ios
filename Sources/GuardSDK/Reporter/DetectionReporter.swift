@@ -60,8 +60,13 @@ class DetectionReporter {
     init(apiClient: SdkApiClient, deviceId: String = UUID().uuidString) {
         self.apiClient = apiClient
         self.deviceId = deviceId
-        startFlushTimer()
         recoverOfflineEvents()
+    }
+
+    /// 자동 플러시 타이머를 외부에서 시작한다.
+    /// startDetection() 호출 시에만 사용한다.
+    func startAutoFlush() {
+        startFlushTimer()
     }
 
     deinit {
