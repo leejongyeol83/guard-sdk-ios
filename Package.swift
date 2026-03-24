@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "GuardSDK",
+    name: "guard-sdk-ios",
     platforms: [.iOS(.v15)],
     products: [
         .library(name: "GuardSDK", targets: ["GuardSDK"]),
