@@ -411,7 +411,7 @@ public final class GuardSDK {
                 // 서버 정책(PolicyData)을 SDK SecurityPolicy로 변환 및 적용
                 let p = initData.policy
                 let da = p.detectionActions
-                let defaultAction = "LOG"
+                let defaultAction = "LOG_ONLY"
                 let serverPolicy = SecurityPolicy(
                     policyId: "server",
                     jailbreakDetectionEnabled: p.detectRoot,
