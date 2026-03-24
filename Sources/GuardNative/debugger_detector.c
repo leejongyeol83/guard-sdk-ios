@@ -5,14 +5,15 @@
 
 #include "guard_native.h"
 #include <sys/sysctl.h>
-#include <sys/ptrace.h>
 #include <mach/mach.h>
 #include <TargetConditionals.h>
 #include <errno.h>
 
+// ptrace.h는 iOS 실기기에서 제공되지 않으므로 직접 선언
 #ifndef PT_DENY_ATTACH
 #define PT_DENY_ATTACH 31
 #endif
+int ptrace(int request, pid_t pid, caddr_t addr, int data);
 
 /**
  * sysctl로 P_TRACED 플래그 확인.
