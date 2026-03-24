@@ -11,7 +11,7 @@ Xcode → File → Add Package Dependencies:
 https://github.com/leejongyeol83/guard-sdk-ios.git
 ```
 
-Branch: `main` 또는 태그 `v1.0.0`
+Dependency Rule: **Up to Next Major Version — 1.0.0**
 
 ## Quick Start
 
@@ -35,8 +35,11 @@ let config = GuardConfig.Builder(apiKey: "pk_your_api_key", serverUrl: "https://
 // 2. 초기화
 GuardSDK.shared.initialize(config: config, delegate: self) { success in
     if success {
-        // 3. 탐지 시작
+        // 3-A. 주기적 탐지
         GuardSDK.shared.startDetection()
+
+        // 3-B. 또는 1회 탐지
+        // GuardSDK.shared.runDetection()
     }
 }
 
@@ -81,15 +84,15 @@ extension ViewController: DetectionDelegate {
 
 | Type | Description |
 |------|-------------|
-| jailbreak | 탈옥 탐지 (Cydia, Sileo, 파일 경로, URL 스킴) |
-| simulator | 시뮬레이터 탐지 (컴파일 플래그, 환경 변수) |
-| debugger | 디버거 연결 탐지 (sysctl P_TRACED, ppid) |
-| integrity | 바이너리 무결성 검증 (__TEXT 해시) |
+| root | 탈옥 탐지 (Cydia, Sileo, 파일 경로, URL 스킴, fork/dyld/symlink) |
+| emulator | 시뮬레이터 탐지 (컴파일 플래그, 환경 변수, 아키텍처) |
+| debugger | 디버거 연결 탐지 (sysctl P_TRACED, ptrace, exception ports) |
+| integrity | 바이너리 무결성 검증 (코드 서명, 암호화 상태) |
 | signature | 코드 서명 검증 (Team ID 기반 재서명 탐지) |
-| hooking | 후킹 프레임워크 탐지 (Frida, Cycript, MobileSubstrate, dyld 이미지) |
-| usbDebug | USB 디버그 탐지 |
+| hooking | 후킹 프레임워크 탐지 (Frida, Cycript, MobileSubstrate, fishhook, dyld 이미지) |
+| usb_debug | USB 디버그 탐지 (sysctl, Xcode 환경, lockdownd) |
 | vpn | VPN 연결 탐지 (utun/ppp/ipsec 인터페이스) |
-| screenCapture | 화면 캡처/녹화 탐지 (UIScreen.isCaptured) |
+| screen_capture | 화면 캡처/녹화 탐지 (UIScreen.isCaptured, 스크린샷 알림) |
 
 ## Requirements
 
