@@ -5,6 +5,9 @@
 // 모든 공개 API는 이 클래스를 통해 접근한다.
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Guard SDK의 공개 진입점.
 /// 싱글톤 패턴으로 앱 전체에서 하나의 인스턴스만 사용한다.
