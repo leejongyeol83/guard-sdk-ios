@@ -44,8 +44,10 @@ public class PolicyCache {
         do {
             let data = try JSONEncoder().encode(policy)
             userDefaults.set(data, forKey: PolicyCache.policyCacheKey)
+            GuardSDK.shared.log(.debug, "[캐시] 정책 저장 완료")
             return true
         } catch {
+            GuardSDK.shared.log(.error, "[캐시] 정책 저장 실패: \(error.localizedDescription)")
             return false
         }
     }
@@ -61,8 +63,11 @@ public class PolicyCache {
         }
 
         do {
-            return try JSONDecoder().decode(SecurityPolicy.self, from: data)
+            let policy = try JSONDecoder().decode(SecurityPolicy.self, from: data)
+            GuardSDK.shared.log(.debug, "[캐시] 정책 복원 완료")
+            return policy
         } catch {
+            GuardSDK.shared.log(.error, "[캐시] 정책 복원 실패: \(error.localizedDescription)")
             clearInternal()
             return nil
         }
@@ -73,6 +78,7 @@ public class PolicyCache {
         lock.lock()
         defer { lock.unlock() }
         clearInternal()
+        GuardSDK.shared.log(.debug, "[캐시] 정책 삭제 완료")
     }
 
     /// 락 내부에서 호출되는 삭제 (재진입 방지)

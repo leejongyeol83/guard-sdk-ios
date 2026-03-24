@@ -6,6 +6,9 @@
 // 지수 백오프 재시도: 1초 -> 2초 -> 4초 (최대 3회)
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// 탐지 이벤트 배치 리포터
 /// 이벤트를 큐에 축적하고 조건 충족 시 서버에 일괄 전송한다.
@@ -58,6 +61,7 @@ class DetectionReporter {
         self.apiClient = apiClient
         self.deviceId = deviceId
         startFlushTimer()
+        recoverOfflineEvents()
     }
 
     deinit {
@@ -73,14 +77,19 @@ class DetectionReporter {
         guard !isShutdown else { return }
 
         var shouldFlush = false
+        var queueSize = 0
 
         queueLock.lock()
         eventQueue.append(event)
-        shouldFlush = eventQueue.count >= DetectionReporter.batchSizeThreshold
+        queueSize = eventQueue.count
+        shouldFlush = queueSize >= DetectionReporter.batchSizeThreshold
         queueLock.unlock()
+
+        GuardSDK.shared.log(.debug, "[리포트] 이벤트 추가됨: type=\(event.type), 큐 크기=\(queueSize)")
 
         // 배치 크기 도달 시 즉시 전송
         if shouldFlush {
+            GuardSDK.shared.log(.debug, "[리포트] 큐 크기 임계값 도달 (\(queueSize)), 자동 전송 시작")
             _ = await flush()
         }
     }
@@ -108,42 +117,56 @@ class DetectionReporter {
         queueLock.lock()
         guard !eventQueue.isEmpty else {
             queueLock.unlock()
+            GuardSDK.shared.log(.debug, "[리포트] 전송할 이벤트 없음")
             return nil
         }
         let eventsToSend = eventQueue
         eventQueue.removeAll()
         queueLock.unlock()
 
+        GuardSDK.shared.log(.debug, "[리포트] 이벤트 전송 시작: \(eventsToSend.count)건")
+
         // 리포트 요청 생성 (API Key 헤더로 인증)
         let request = DetectionReportRequest(
             deviceId: deviceId,
             platform: "ios",
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            osVersion: UIDevice.current.systemVersion,
             deviceModel: DetectionReporter.deviceModel(),
             detections: eventsToSend
         )
 
         // 지수 백오프 재시도
         for attempt in 0..<DetectionReporter.maxRetry {
+            if attempt > 0 {
+                let delay = DetectionReporter.retryDelays[
+                    min(attempt - 1, DetectionReporter.retryDelays.count - 1)
+                ]
+                GuardSDK.shared.log(.debug, "[리포트] 재시도 \(attempt)/\(DetectionReporter.maxRetry), \(Int(delay * 1000))ms 대기")
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+
             let result = await apiClient.reportDetections(request: request)
 
             switch result {
-            case .success:
+            case .success(let response):
+                GuardSDK.shared.log(.debug, "[리포트] 전송 성공: received=\(response.data.received)")
                 return result
 
-            case .error, .networkError:
-                // 마지막 시도가 아니면 백오프 대기 후 재시도
-                if attempt < DetectionReporter.maxRetry - 1 {
-                    let delay = DetectionReporter.retryDelays[
-                        min(attempt, DetectionReporter.retryDelays.count - 1)
-                    ]
-                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            case .error(let code, let message):
+                if code == 401 {
+                    GuardSDK.shared.log(.error, "[리포트] 인증 에러로 재시도 중단")
+                    return result
                 }
+                GuardSDK.shared.log(.warn, "[리포트] 서버 에러 (시도 \(attempt + 1)/\(DetectionReporter.maxRetry)): code=\(code), message=\(message)")
+
+            case .networkError(let error):
+                GuardSDK.shared.log(.warn, "[리포트] 네트워크 에러 (시도 \(attempt + 1)/\(DetectionReporter.maxRetry)): \(error.localizedDescription)")
             }
         }
 
         // 모든 재시도 실패 - 오프라인 저장
+        GuardSDK.shared.log(.error, "[리포트] 모든 재시도 실패, 이벤트를 로컬에 저장")
         saveOfflineEvents(eventsToSend)
         return .networkError(
             NSError(
@@ -167,12 +190,14 @@ class DetectionReporter {
         // 오프라인 저장소 클리어 (중복 전송 방지)
         clearOfflineEvents()
 
+        GuardSDK.shared.log(.debug, "[리포트] 대기 이벤트 \(offlineEvents.count)건 복구")
+
         // 리포트 요청 생성 및 전송 (API Key 헤더로 인증)
         let request = DetectionReportRequest(
             deviceId: deviceId,
             platform: "ios",
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            osVersion: UIDevice.current.systemVersion,
             deviceModel: DetectionReporter.deviceModel(),
             detections: offlineEvents
         )
@@ -182,8 +207,9 @@ class DetectionReporter {
         // 전송 실패 시 다시 오프라인 저장
         switch result {
         case .success:
-            break
+            GuardSDK.shared.log(.debug, "[리포트] 오프라인 이벤트 전송 성공")
         case .error, .networkError:
+            GuardSDK.shared.log(.warn, "[리포트] 오프라인 이벤트 전송 실패, 다시 저장")
             saveOfflineEvents(offlineEvents)
         }
     }
@@ -194,6 +220,7 @@ class DetectionReporter {
         isShutdown = true
         flushTimer?.invalidate()
         flushTimer = nil
+        GuardSDK.shared.log(.debug, "[리포트] DetectionReporter 종료")
     }
 
     // MARK: - 내부 구현
@@ -208,10 +235,18 @@ class DetectionReporter {
                 repeats: true
             ) { [weak self] _ in
                 guard let self = self else { return }
+                GuardSDK.shared.log(.debug, "[리포트] 자동 전송 주기 도달 (\(Int(DetectionReporter.flushInterval))s 경과)")
                 Task {
                     await self.flush()
                 }
             }
+        }
+    }
+
+    /// 초기화 시 오프라인 이벤트 복구 시도
+    private func recoverOfflineEvents() {
+        Task {
+            await flushOfflineEvents()
         }
     }
 
@@ -226,13 +261,15 @@ class DetectionReporter {
 
             // 최대 100건으로 제한 (메모리 보호)
             if allEvents.count > 100 {
+                GuardSDK.shared.log(.warn, "[리포트] 오프라인 이벤트 상한 초과 (\(allEvents.count)건), 최근 100건만 유지")
                 allEvents = Array(allEvents.suffix(100))
             }
 
             let data = try encoder.encode(allEvents)
             UserDefaults.standard.set(data, forKey: DetectionReporter.offlineKey)
+            GuardSDK.shared.log(.debug, "[리포트] 대기 이벤트 \(events.count)건 로컬 저장 완료")
         } catch {
-            // 직렬화 실패 시 무시 (방어적 프로그래밍)
+            GuardSDK.shared.log(.error, "[리포트] 대기 이벤트 저장 실패: \(error.localizedDescription)")
         }
     }
 
@@ -247,7 +284,7 @@ class DetectionReporter {
             let decoder = JSONDecoder()
             return try decoder.decode([DetectionEvent].self, from: data)
         } catch {
-            // 역직렬화 실패 시 저장소 클리어
+            GuardSDK.shared.log(.error, "[리포트] 대기 이벤트 불러오기 실패: \(error.localizedDescription)")
             clearOfflineEvents()
             return nil
         }

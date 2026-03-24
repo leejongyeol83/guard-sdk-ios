@@ -116,7 +116,7 @@ class HeartbeatScheduler {
 
     /// 탐지 결과 요약을 업데이트한다.
     /// PolicyEngine에서 탐지 완료 후 호출한다.
-    /// - Parameter summary: 탐지 유형별 결과 (예: ["jailbreak": false])
+    /// - Parameter summary: 탐지 유형별 결과 (예: ["root": false])
     func updateDetectionSummary(_ summary: [String: Bool]) {
         detectionSummary = summary
     }

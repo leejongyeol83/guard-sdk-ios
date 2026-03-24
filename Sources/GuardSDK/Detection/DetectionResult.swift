@@ -14,10 +14,10 @@ import Foundation
 public enum DetectionType: String, Codable, CaseIterable {
 
     /// 탈옥 탐지 - Cydia, Sileo 등 탈옥 흔적 검사
-    case jailbreak
+    case jailbreak = "root"
 
     /// 시뮬레이터 탐지 - Xcode 시뮬레이터 실행 환경 검사
-    case simulator
+    case simulator = "emulator"
 
     /// 디버거 탐지 - sysctl, ptrace 기반 디버거 연결 검사
     case debugger

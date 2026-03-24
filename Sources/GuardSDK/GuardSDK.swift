@@ -335,6 +335,11 @@ public final class GuardSDK {
         // 정책 엔진을 통해 탐지 실행
         let results = engine.runDetection()
 
+        // 위협 발견 로그 (개별 항목)
+        for result in results where result.detected {
+            self.log(.warn, "[탐지] 위협 발견: \(result.type.rawValue) (신뢰도=\(result.confidence), 액션=\(result.action.rawValue))")
+        }
+
         // 개별 결과를 delegate에 전달 (메인 스레드)
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -348,6 +353,8 @@ public final class GuardSDK {
             self.delegate?.guardSDK(self, didCompleteBatch: results, action: highestAction)
         }
 
+        let highestAction = self.determineHighestAction(from: results)
+        self.log(.debug, "[탐지] 사이클 완료: \(results.count)건 검사, 최종 액션=\(highestAction.rawValue)")
         self.log(.debug, "[탐지] 보안 탐지 완료: \(results.count)건 검사, \(results.filter { $0.detected }.count)건 탐지")
 
         // 탐지 결과를 서버에 리포트
@@ -420,11 +427,11 @@ public final class GuardSDK {
                     signatureVerifyEnabled: p.detectSignature,
                     signatureVerifyAction: (da["signature"] ?? defaultAction).uppercased(),
                     usbDebugDetectionEnabled: p.detectUsbDebug,
-                    usbDebugDetectionAction: (da["usbDebug"] ?? defaultAction).uppercased(),
+                    usbDebugDetectionAction: (da["usb_debug"] ?? defaultAction).uppercased(),
                     vpnDetectionEnabled: p.detectVpn,
                     vpnDetectionAction: (da["vpn"] ?? defaultAction).uppercased(),
                     screenCaptureBlockEnabled: p.detectScreenCapture,
-                    screenCaptureBlockAction: (da["screenCapture"] ?? defaultAction).uppercased(),
+                    screenCaptureBlockAction: (da["screen_capture"] ?? defaultAction).uppercased(),
                     expectedBinaryHash: initData.hashes?.codeHash,
                     expectedSignatureHash: initData.hashes?.signatureHashes?.first
                 )
@@ -449,7 +456,8 @@ public final class GuardSDK {
                 }
 
             case .error(_, let message):
-                self.log(.error, "[서버] 초기화 실패: \(message)")
+                self.log(.warn, "[서버] 초기화 실패: \(message) (오프라인 모드)")
+                self.logOfflineFallbackMode()
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(message) (오프라인 모드)")
@@ -457,13 +465,23 @@ public final class GuardSDK {
                 }
 
             case .networkError(let error):
-                self.log(.error, "[서버] 네트워크 연결 실패: \(error.localizedDescription)")
+                self.log(.warn, "[서버] 네트워크 연결 실패: \(error.localizedDescription) (오프라인 모드)")
+                self.logOfflineFallbackMode()
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(error.localizedDescription) (오프라인 모드)")
                     self.delegate?.guardSDK(self, didEncounterError: .networkError(error))
                 }
             }
+        }
+    }
+
+    /// 오프라인 fallback 모드 안내 로그
+    private func logOfflineFallbackMode() {
+        if policyCache?.load() != nil {
+            log(.info, "[캐시] 오프라인 모드: 캐시된 정책으로 탐지를 계속합니다.")
+        } else {
+            log(.info, "[캐시] 오프라인 모드: GuardConfig 기반 초기 정책으로 동작합니다.")
         }
     }
 
@@ -477,6 +495,8 @@ public final class GuardSDK {
         }
 
         guard !events.isEmpty else { return }
+
+        self.log(.debug, "[리포트] 탐지 리포트 전송: \(events.count)건")
 
         // DetectionReporter가 있으면 배치 리포터 사용 (재시도 + 오프라인 저장)
         if let reporter = self.reporter {
@@ -497,7 +517,7 @@ public final class GuardSDK {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
         Task {
-            _ = await client.reportDetections(
+            let result = await client.reportDetections(
                 request: DetectionReportRequest(
                     deviceId: deviceId,
                     platform: "ios",
@@ -507,6 +527,14 @@ public final class GuardSDK {
                     detections: events
                 )
             )
+            switch result {
+            case .success(let response):
+                self.log(.debug, "[리포트] 전송 성공: received=\(response.data.received)")
+            case .error(let code, let message):
+                self.log(.error, "[리포트] 전송 실패: code=\(code), message=\(message)")
+            case .networkError(let error):
+                self.log(.error, "[리포트] 네트워크 오류: \(error.localizedDescription)")
+            }
         }
     }
 
