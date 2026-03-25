@@ -115,7 +115,7 @@ public struct GuardConfig {
         private var enableUsbDebugDetection: Bool = false
         private var enableVpnDetection: Bool = false
         private var enableScreenCaptureBlock: Bool = false
-        private var logLevel: LogLevel = .warn
+        private var logLevel: LogLevel = .none
 
         /// 빌더를 초기화한다.
         ///
