@@ -30,6 +30,7 @@ let config = GuardConfig.Builder(apiKey: "pk_your_api_key", serverUrl: "https://
     .enableVpnDetection(true)
     .enableScreenCaptureBlock(true)
     .detectionInterval(60) // 60초
+    .logLevel(.debug) // .none, .error, .warn, .info, .debug
     .build()
 
 // 2. 초기화
