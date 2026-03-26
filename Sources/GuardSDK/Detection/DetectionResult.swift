@@ -19,7 +19,7 @@ public enum DetectionType: String, Codable, CaseIterable {
     /// 시뮬레이터 탐지 - Xcode 시뮬레이터 실행 환경 검사
     case simulator = "emulator"
 
-    /// 디버거 탐지 - sysctl, ptrace 기반 디버거 연결 검사
+    /// 디버거 탐지 - sysctl, exception ports 기반 디버거 연결 검사
     case debugger
 
     /// 앱 무결성 검증 - 바이너리 해시, 코드 서명 검증

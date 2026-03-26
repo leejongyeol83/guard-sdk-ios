@@ -9,7 +9,7 @@ import Foundation
 @_implementationOnly import GuardNative
 
 /// 탈옥(Jailbreak) 탐지기
-/// 6개 검사 항목(Swift 3개 + C 네이티브 3개)을 실행하여 탈옥 여부를 판별한다.
+/// 5개 검사 항목(Swift 3개 + C 네이티브 2개)을 실행하여 탈옥 여부를 판별한다.
 public final class JailbreakDetector: Detector {
 
     // MARK: - Detector 프로토콜
@@ -128,15 +128,11 @@ public final class JailbreakDetector: Detector {
         // 3. Swift 레이어: 샌드박스 외부 쓰기 가능 확인
         checks["sandbox_write"] = checkSandboxIntegrity()
 
-        // 4. C 네이티브: fork() 호출 가능 여부 (탈옥 시 fork 가능)
-        let forkResult = native_check_fork()
-        checks["fork_check"] = forkResult == 1 ? "detected" : "not_detected"
-
-        // 5. C 네이티브: _dyld_image_count 비정상 dylib 로드 확인
+        // 4. C 네이티브: _dyld_image_count 비정상 dylib 로드 확인
         let dyldResult = native_check_dyld()
         checks["dyld_check"] = dyldResult == 1 ? "detected" : "not_detected"
 
-        // 6. C 네이티브: /etc/fstab 등 심볼릭 링크 변조 확인
+        // 5. C 네이티브: /etc/fstab 등 심볼릭 링크 변조 확인
         let symlinkResult = native_check_symlinks()
         checks["symlink_check"] = symlinkResult == 1 ? "detected" : "not_detected"
 
@@ -147,7 +143,7 @@ public final class JailbreakDetector: Detector {
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
 
         #if DEBUG
-        print("[GuardSDK DEBUG] [탈옥 탐지] suspiciousPaths=\(checks["suspicious_paths"]?.hasPrefix("detected") ?? false), urlSchemes=\(checks["url_schemes"] == "detected"), sandboxWrite=\(checks["sandbox_write"] == "detected"), fork=\(forkResult == 1), dyld=\(dyldResult == 1), symlink=\(symlinkResult == 1) → detected=\(detected) (confidence=\(confidence))")
+        print("[GuardSDK DEBUG] [탈옥 탐지] suspiciousPaths=\(checks["suspicious_paths"]?.hasPrefix("detected") ?? false), urlSchemes=\(checks["url_schemes"] == "detected"), sandboxWrite=\(checks["sandbox_write"] == "detected"), dyld=\(dyldResult == 1), symlink=\(symlinkResult == 1) → detected=\(detected) (confidence=\(confidence))")
         #endif
 
         return DetectionResult(

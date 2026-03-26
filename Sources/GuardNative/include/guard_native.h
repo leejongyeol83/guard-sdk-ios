@@ -20,13 +20,11 @@
 #define CHECK_ERROR -1
 
 // === 탈옥 탐지 ===
-int native_check_fork(void);
 int native_check_dyld(void);
 int native_check_symlinks(void);
 
 // === 디버거 탐지 ===
 int native_check_sysctl(void);
-int native_deny_attach(void);
 int native_check_exception_ports(void);
 
 // === 후킹 탐지 ===

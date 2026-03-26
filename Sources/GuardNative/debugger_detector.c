@@ -1,19 +1,12 @@
 // debugger_detector.c
 // GuardSDK - 디버거 탐지 C 네이티브 구현
 //
-// [CL-22] sysctl, ptrace, exception ports 기반 디버거 탐지
+// [CL-22] sysctl, exception ports 기반 디버거 탐지
 
 #include "guard_native.h"
 #include <sys/sysctl.h>
 #include <mach/mach.h>
 #include <TargetConditionals.h>
-#include <errno.h>
-
-// ptrace.h는 iOS 실기기에서 제공되지 않으므로 직접 선언
-#ifndef PT_DENY_ATTACH
-#define PT_DENY_ATTACH 31
-#endif
-int ptrace(int request, pid_t pid, caddr_t addr, int data);
 
 /**
  * sysctl로 P_TRACED 플래그 확인.
@@ -37,38 +30,6 @@ int native_check_sysctl(void) {
         }
     }
     return NOT_DETECTED;
-}
-
-/**
- * ptrace(PT_DENY_ATTACH) 안티디버깅.
- *
- * PT_DENY_ATTACH(31)를 호출하면 이후 디버거 연결을 커널 레벨에서 차단한다.
- * 이미 디버거가 연결된 상태에서는 ptrace 호출이 실패(EBUSY)하므로
- * 이를 통해 디버거 연결 여부를 판별한다.
- *
- * 주의: PT_DENY_ATTACH 성공 시 이후 LLDB/GDB 연결이 영구 차단된다.
- *
- * @return DETECTED(1): 디버거가 이미 연결되어 ptrace 실패
- *         NOT_DETECTED(0): 정상 (ptrace 성공 또는 시뮬레이터)
- */
-int native_deny_attach(void) {
-#if TARGET_OS_SIMULATOR
-    /* 시뮬레이터에서는 ptrace가 제한됨 */
-    return NOT_DETECTED;
-#else
-    /*
-     * ptrace(PT_DENY_ATTACH) 호출:
-     * - 성공(0): 디버거 미연결, 이후 연결 차단됨
-     * - 실패(-1, EBUSY/EPERM): 디버거가 이미 연결됨
-     */
-    int result = ptrace(PT_DENY_ATTACH, 0, 0, 0);
-    if (result == -1) {
-        /* ptrace 실패 = 디버거가 이미 연결된 상태 */
-        return DETECTED;
-    }
-    /* ptrace 성공 = 디버거 미연결 (이후 연결 차단됨) */
-    return NOT_DETECTED;
-#endif
 }
 
 /**

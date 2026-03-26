@@ -2,14 +2,14 @@
 // GuardSDK
 //
 // [CL-12] 디버거 탐지 모듈
-// sysctl, ptrace 기반으로 디버거 연결을 탐지한다.
+// sysctl, exception ports 기반으로 디버거 연결을 탐지한다.
 // 핵심 로직은 C 네이티브 레이어에서 실행된다.
 
 import Foundation
 @_implementationOnly import GuardNative
 
 /// 디버거 탐지기
-/// 4개 검사 항목(Swift 1개 + C 네이티브 3개)을 실행하여
+/// 3개 검사 항목(Swift 1개 + C 네이티브 2개)을 실행하여
 /// 디버거 연결 여부를 판별한다.
 public final class DebuggerDetector: Detector {
 
@@ -36,13 +36,7 @@ public final class DebuggerDetector: Detector {
         let sysctlResult = native_check_sysctl()
         checks["sysctl_traced"] = sysctlResult == 1 ? "detected" : "not_detected"
 
-        // 3. C 네이티브: ptrace(PT_DENY_ATTACH) 호출
-        // 디버거가 이미 연결된 경우 PT_DENY_ATTACH가 실패한다.
-        // 성공 시 이후 디버거 연결을 차단한다.
-        let ptraceResult = native_deny_attach()
-        checks["ptrace_deny"] = ptraceResult == 1 ? "detected" : "not_detected"
-
-        // 4. C 네이티브: task_get_exception_ports로 디버거 확인
+        // 3. C 네이티브: task_get_exception_ports로 디버거 확인
         // 디버거가 연결되면 exception port가 변경된다.
         // 비정상 exception port가 감지되면 디버거가 연결된 것이다.
         let exceptionResult = native_check_exception_ports()
@@ -55,7 +49,7 @@ public final class DebuggerDetector: Detector {
         let confidence = detected ? min(Float(detectedCount) / Float(totalChecks), 1.0) : 0.0
 
         #if DEBUG
-        print("[GuardSDK DEBUG] [디버거 탐지] dyldInsert=\(checks["dyld_insert"] == "detected"), sysctlTraced=\(sysctlResult == 1), ptraceDeny=\(ptraceResult == 1), exceptionPorts=\(exceptionResult == 1) → detected=\(detected) (confidence=\(confidence))")
+        print("[GuardSDK DEBUG] [디버거 탐지] dyldInsert=\(checks["dyld_insert"] == "detected"), sysctlTraced=\(sysctlResult == 1), exceptionPorts=\(exceptionResult == 1) → detected=\(detected) (confidence=\(confidence))")
         #endif
 
         return DetectionResult(

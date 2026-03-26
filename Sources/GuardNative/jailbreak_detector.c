@@ -2,8 +2,7 @@
  * jailbreak_detector.c
  * GuardSDK - 탈옥 탐지 C 네이티브 구현
  *
- * [CL-21] 3개 탈옥 탐지 함수:
- *   - native_check_fork(): fork() 호출 가능 여부
+ * [CL-21] 2개 탈옥 탐지 함수:
  *   - native_check_dyld(): 의심 dylib 로드 확인
  *   - native_check_symlinks(): 시스템 심볼릭 링크 변조 확인
  */
@@ -11,7 +10,6 @@
 #include "guard_native.h"
 #include <dlfcn.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <mach-o/dyld.h>
 
 /* ============================================================
@@ -55,38 +53,6 @@ static const char *suspicious_symlinks[] = {
     "/usr/share",
     NULL
 };
-
-/**
- * fork() 호출 가능 여부 검사.
- *
- * 정상 iOS 앱은 sandbox에 의해 fork() 시스템 콜이 차단된다.
- * 탈옥 환경에서는 sandbox 제한이 해제되어 fork()가 성공한다.
- *
- * 동작:
- *   1. fork() 호출 시도
- *   2. 성공(pid >= 0)이면 탈옥 환경으로 판단
- *   3. 자식 프로세스는 즉시 종료, 부모는 waitpid로 회수
- *
- * @return DETECTED(1): fork 성공 = 탈옥 환경
- *         NOT_DETECTED(0): fork 실패 = 정상 환경
- */
-int native_check_fork(void) {
-    pid_t pid = fork();
-
-    if (pid >= 0) {
-        if (pid == 0) {
-            /* 자식 프로세스: 즉시 종료 */
-            _exit(0);
-        } else {
-            /* 부모 프로세스: 자식 프로세스 종료 대기 (좀비 방지) */
-            int status;
-            waitpid(pid, &status, 0);
-        }
-        return DETECTED;  /* fork 성공 = 탈옥 환경 */
-    }
-
-    return NOT_DETECTED;  /* fork 실패 = 정상 sandbox 환경 */
-}
 
 /**
  * _dyld_image_count + _dyld_get_image_name으로 의심 dylib 탐지.
