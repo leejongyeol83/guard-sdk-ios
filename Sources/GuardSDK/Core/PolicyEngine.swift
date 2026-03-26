@@ -200,7 +200,7 @@ public class PolicyEngine {
             return .block
         case "WARN":
             return .warn
-        case "LOG_ONLY":
+        case "LOG":
             return .log
         case "NONE":
             return .none

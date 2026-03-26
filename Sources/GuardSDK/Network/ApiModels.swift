@@ -31,7 +31,7 @@ struct SdkInitData: Codable {
 
 /// 보안 정책 — 서버 응답 필드명 그대로 (camelCase)
 struct PolicyData: Codable {
-    let detectTampering: Bool
+    let detectIntegrity: Bool
     let detectSignature: Bool
     let detectDebugger: Bool
     let detectHooking: Bool
@@ -44,7 +44,7 @@ struct PolicyData: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        detectTampering = try container.decodeIfPresent(Bool.self, forKey: .detectTampering) ?? false
+        detectIntegrity = try container.decodeIfPresent(Bool.self, forKey: .detectIntegrity) ?? false
         detectSignature = try container.decodeIfPresent(Bool.self, forKey: .detectSignature) ?? false
         detectDebugger = try container.decodeIfPresent(Bool.self, forKey: .detectDebugger) ?? false
         detectHooking = try container.decodeIfPresent(Bool.self, forKey: .detectHooking) ?? false

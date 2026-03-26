@@ -414,7 +414,7 @@ public final class GuardSDK {
                 // 서버 정책(PolicyData)을 SDK SecurityPolicy로 변환 및 적용
                 let p = initData.policy
                 let da = p.detectionActions
-                let defaultAction = "LOG_ONLY"
+                let defaultAction = "LOG"
                 let serverPolicy = SecurityPolicy(
                     policyId: "server",
                     jailbreakDetectionEnabled: p.detectRoot,
@@ -423,8 +423,8 @@ public final class GuardSDK {
                     simulatorDetectionAction: (da["emulator"] ?? defaultAction).uppercased(),
                     debuggerDetectionEnabled: p.detectDebugger,
                     debuggerDetectionAction: (da["debugger"] ?? defaultAction).uppercased(),
-                    integrityCheckEnabled: p.detectTampering,
-                    integrityCheckAction: (da["tampering"] ?? defaultAction).uppercased(),
+                    integrityCheckEnabled: p.detectIntegrity,
+                    integrityCheckAction: (da["integrity"] ?? defaultAction).uppercased(),
                     hookingDetectionEnabled: p.detectHooking,
                     hookingDetectionAction: (da["hooking"] ?? defaultAction).uppercased(),
                     signatureVerifyEnabled: p.detectSignature,
