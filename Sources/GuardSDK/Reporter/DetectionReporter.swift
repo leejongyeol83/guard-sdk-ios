@@ -57,7 +57,7 @@ class DetectionReporter {
     /// - Parameters:
     ///   - apiClient: 서버 전송용 API 클라이언트 (API Key 인증)
     ///   - deviceId: 디바이스 고유 식별자
-    init(apiClient: SdkApiClient, deviceId: String = UUID().uuidString) {
+    init(apiClient: SdkApiClient, deviceId: String) {
         self.apiClient = apiClient
         self.deviceId = deviceId
         recoverOfflineEvents()

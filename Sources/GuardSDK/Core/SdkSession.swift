@@ -25,8 +25,25 @@ public class SdkSession {
     /// 만료 시간 저장 키
     private static let expiresAtKey = "session_expires_at"
 
+    /// 디바이스 ID 저장 키
+    private static let deviceIdKey = "device_id"
+
     /// 기본 TTL (24시간)
     public static let defaultTTL: TimeInterval = 24 * 60 * 60
+
+    // MARK: - 디바이스 ID
+
+    /// 영구 디바이스 ID를 반환한다. 없으면 생성하여 Keychain에 저장한다.
+    ///
+    /// 앱 재설치 전까지 동일한 ID가 유지된다.
+    public func getOrCreateDeviceId() -> String {
+        if let existing = loadKeychainItem(key: SdkSession.deviceIdKey) {
+            return existing
+        }
+        let newId = UUID().uuidString
+        saveKeychainItem(key: SdkSession.deviceIdKey, value: newId)
+        return newId
+    }
 
     // MARK: - 공개 메서드
 

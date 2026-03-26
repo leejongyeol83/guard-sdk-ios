@@ -368,9 +368,9 @@ public final class GuardSDK {
 
     /// 서버에서 보안 정책을 수신한다.
     private func fetchPolicyFromServer() {
-        guard let client = apiClient else { return }
+        guard let client = apiClient, let session = self.session else { return }
 
-        let deviceId = UUID().uuidString
+        let deviceId = session.getOrCreateDeviceId()
 
         var systemInfo = utsname()
         uname(&systemInfo)
@@ -516,7 +516,7 @@ public final class GuardSDK {
         // 폴백: 직접 전송 (reporter 미생성 시)
         guard let client = apiClient else { return }
 
-        let deviceId = currentDeviceId ?? UUID().uuidString
+        let deviceId = currentDeviceId ?? session?.getOrCreateDeviceId() ?? UUID().uuidString
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
         Task {
