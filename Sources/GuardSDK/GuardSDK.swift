@@ -53,9 +53,6 @@ public final class GuardSDK {
     /// SDK 설정 정보
     private var config: GuardConfig?
 
-    /// 세션 토큰 관리 (Keychain 기반)
-    private var session: SdkSession?
-
     /// 보안 정책 로컬 캐시
     private var policyCache: PolicyCache?
 
@@ -105,23 +102,20 @@ public final class GuardSDK {
             self.config = config
             self.delegate = delegate
 
-            // 1. 세션 관리자 초기화
-            self.session = SdkSession()
-
-            // 2. 정책 캐시 초기화
+            // 1. 정책 캐시 초기화
             self.policyCache = PolicyCache()
 
-            // 3. 정책 엔진 초기화 + Config 기반 탐지기 자동 등록
+            // 2. 정책 엔진 초기화 + Config 기반 탐지기 자동 등록
             let engine = PolicyEngine()
             self.registerDetectors(engine: engine, config: config)
             self.policyEngine = engine
 
-            // 4. GuardConfig 기반 초기 정책 적용 (서버 정책 수신 전 기본 정책)
+            // 3. GuardConfig 기반 초기 정책 적용 (서버 정책 수신 전 기본 정책)
             let initialPolicy = self.createPolicyFromConfig(config)
             engine.applyPolicy(initialPolicy)
             self.log(.info, "[정책] GuardConfig 기반 초기 정책 적용 완료")
 
-            // 5. 캐시된 정책이 있으면 덮어쓰기 (GuardConfig보다 우선)
+            // 4. 캐시된 정책이 있으면 덮어쓰기 (GuardConfig보다 우선)
             if let cachedPolicy = self.policyCache?.load() {
                 engine.applyPolicy(cachedPolicy)
                 if !cachedPolicy.detectionSignatures.isEmpty {
@@ -130,17 +124,17 @@ public final class GuardSDK {
                 self.log(.info, "[정책] 캐시된 보안 정책 적용 완료")
             }
 
-            // 6. API 클라이언트 초기화
+            // 5. API 클라이언트 초기화
             self.apiClient = SdkApiClient(serverUrl: config.serverUrl, apiKey: config.apiKey, config: config)
 
-            // 7. 초기화 완료 표시
+            // 6. 초기화 완료 표시
             self._isInitialized = true
             self.log(.info, "[초기화] SDK 초기화 완료 (apiKey: \(config.apiKey.prefix(8))..., 탐지기: \(engine.detectorCount)개)")
 
-            // 8. 완료 콜백 (메인 스레드)
+            // 7. 완료 콜백 (메인 스레드)
             DispatchQueue.main.async { completion?(true) }
 
-            // 9. 서버에서 정책 수신 (비동기)
+            // 8. 서버에서 정책 수신 (비동기)
             self.fetchPolicyFromServer()
         }
     }
@@ -238,7 +232,7 @@ public final class GuardSDK {
 
     /// SDK를 완전히 종료하고 리소스를 해제한다.
     ///
-    /// 탐지 중지 + 하트비트 중지 + 내부 상태 초기화.
+    /// 탐지 중지 + 내부 상태 초기화.
     /// 다시 사용하려면 initialize()를 재호출해야 한다.
     public func stop() {
         sdkQueue.async { [weak self] in
@@ -266,7 +260,6 @@ public final class GuardSDK {
             self.apiClient = nil
             self.policyEngine = nil
             self.policyCache = nil
-            self.session = nil
             self.config = nil
             self.currentDeviceId = nil
             self._isInitialized = false
@@ -290,7 +283,6 @@ public final class GuardSDK {
             self.apiClient = nil
             self.policyEngine = nil
             self.policyCache = nil
-            self.session = nil
             self.config = nil
             self.currentDeviceId = nil
             self.delegate = nil
@@ -368,9 +360,9 @@ public final class GuardSDK {
 
     /// 서버에서 보안 정책을 수신한다.
     private func fetchPolicyFromServer() {
-        guard let client = apiClient, let session = self.session else { return }
+        guard let client = apiClient else { return }
 
-        let deviceId = session.getOrCreateDeviceId()
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
 
         var systemInfo = utsname()
         uname(&systemInfo)
@@ -516,7 +508,7 @@ public final class GuardSDK {
         // 폴백: 직접 전송 (reporter 미생성 시)
         guard let client = apiClient else { return }
 
-        let deviceId = currentDeviceId ?? session?.getOrCreateDeviceId() ?? UUID().uuidString
+        let deviceId = currentDeviceId ?? UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
         Task {

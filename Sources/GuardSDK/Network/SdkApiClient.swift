@@ -1,10 +1,10 @@
 // SdkApiClient.swift
 // GuardSDK - URLSession 기반 API 클라이언트
 //
-// [CL-15] 서버 API와 통신하는 HTTP 클라이언트
+// 서버 API와 통신하는 HTTP 클라이언트
 // 인증 방식: HTTP 헤더 기반
 //   - 초기화: X-API-Key + X-Device-Id 헤더
-//   - 탐지/하트비트: X-Session-Token 헤더
+//   - 탐지 리포트: X-API-Key 헤더
 
 import Foundation
 
@@ -21,14 +21,12 @@ class SdkApiClient {
     private enum Endpoint {
         static let initialize = "/api/sdk/guard/init"
         static let report = "/api/sdk/guard/report"
-        // heartbeat는 현재 미사용 (서버 모델에서 제거됨)
     }
 
     /// HTTP 헤더 키
     private enum HeaderKey {
         static let apiKey = "X-API-Key"
         static let deviceId = "X-Device-Id"
-        static let sessionToken = "X-Session-Token"
         static let contentType = "Content-Type"
         static let userAgent = "User-Agent"
     }
