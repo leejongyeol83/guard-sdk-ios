@@ -539,13 +539,15 @@ public final class GuardSDK {
     private func handleCaptureStateChanged(_ isCaptured: Bool) {
         log(.info, "화면 캡처 상태 변경: isCaptured=\(isCaptured)")
 
+        // 녹화 종료는 무시 — 시작 시점만 리포트
+        guard isCaptured else { return }
+
         // 정책에서 화면 캡처 탐지가 꺼져있으면 무시
         guard policyEngine?.isDetectionEnabled(for: .screenCapture) == true else { return }
 
-        let eventName = isCaptured ? "recording_started" : "recording_stopped"
         let event = DetectionEventModel(
             type: "screen_capture",
-            details: ["event": eventName]
+            details: ["event": "recording_started"]
         )
         if let reporter = self.reporter {
             Task { await reporter.addEventImmediate(event) }
@@ -553,14 +555,14 @@ public final class GuardSDK {
 
         let result = DetectionResult(
             type: .screenCapture,
-            detected: isCaptured,
+            detected: true,
             confidence: 1.0,
-            details: ["event": eventName]
+            details: ["event": "recording_started"]
         )
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.callback?.onDetection(result: result)
-            self.log(.info, "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
+            self.log(.info, "화면 녹화 시작 감지")
         }
     }
 
