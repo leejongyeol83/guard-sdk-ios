@@ -542,18 +542,24 @@ public final class GuardSDK {
         // 정책에서 화면 캡처 탐지가 꺼져있으면 무시
         guard policyEngine?.isDetectionEnabled(for: .screenCapture) == true else { return }
 
-        if isCaptured {
-            let event = DetectionEventModel(
-                type: "screen_capture",
-                details: ["event": "recording_started"]
-            )
-            if let reporter = self.reporter {
-                Task { await reporter.addEventImmediate(event) }
-            }
+        let eventName = isCaptured ? "recording_started" : "recording_stopped"
+        let event = DetectionEventModel(
+            type: "screen_capture",
+            details: ["event": eventName]
+        )
+        if let reporter = self.reporter {
+            Task { await reporter.addEventImmediate(event) }
         }
 
+        let result = DetectionResult(
+            type: .screenCapture,
+            detected: isCaptured,
+            confidence: 1.0,
+            details: ["event": eventName]
+        )
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            self.callback?.onDetection(result: result)
             self.log(.info, "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
         }
     }
