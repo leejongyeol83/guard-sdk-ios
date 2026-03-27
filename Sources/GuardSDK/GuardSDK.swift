@@ -636,6 +636,10 @@ public final class GuardSDK {
     private func determineHighestAction(from results: [DetectionResult]) -> DetectAction {
         let detectedResults = results.filter { $0.detected }
 
+        if detectedResults.isEmpty {
+            return .none
+        }
+
         if detectedResults.contains(where: { $0.action == .block }) {
             return .block
         } else if detectedResults.contains(where: { $0.action == .warn }) {
@@ -643,7 +647,7 @@ public final class GuardSDK {
         } else if detectedResults.contains(where: { $0.action == .log }) {
             return .log
         }
-        return .log
+        return .none
     }
 
     /// utsname().machine에서 디바이스 모델명을 반환한다 (예: "iPhone15,2").
