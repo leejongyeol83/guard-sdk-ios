@@ -127,8 +127,3 @@ extension SdkError: LocalizedError {
         }
     }
 }
-
-// MARK: - 하위 호환
-
-@available(*, deprecated, renamed: "GuardCallback", message: "GuardCallback으로 대체되었습니다.")
-public typealias DetectionDelegate = GuardCallback

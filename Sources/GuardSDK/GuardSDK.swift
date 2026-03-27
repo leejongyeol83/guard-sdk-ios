@@ -151,12 +151,6 @@ public final class GuardSDK {
         }
     }
 
-    /// [하위 호환] start()는 initialize()와 동일하게 동작한다.
-    @available(*, deprecated, renamed: "initialize(config:callback:)", message: "initialize(config:callback:)를 사용하세요.")
-    public func start(config: GuardConfig, callback: GuardCallback? = nil) {
-        initialize(config: config, callback: callback)
-    }
-
     // MARK: - 공개 메서드: 탐지 제어
 
     /// 주기적 보안 탐지를 시작한다.
