@@ -50,7 +50,11 @@ extension ViewController: GuardCallback {
     }
 
     func onDetection(result: DetectionResult) {
-        switch result.action {
+        // 개별 탐지 결과
+    }
+
+    func onDetectionBatch(results: [DetectionResult], action: DetectAction) {
+        switch action {
         case .block:
             // 앱 종료 또는 기능 제한
             break
