@@ -364,14 +364,6 @@ public final class GuardSDK {
 
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
 
-        var systemInfo = utsname()
-        uname(&systemInfo)
-        let deviceModel = withUnsafePointer(to: &systemInfo.machine) {
-            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
-                String(cString: $0)
-            }
-        }
-
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
 
         let request = SdkInitRequest(
@@ -379,7 +371,7 @@ public final class GuardSDK {
             appVersion: appVersion,
             deviceId: deviceId,
             osVersion: UIDevice.current.systemVersion,
-            deviceModel: deviceModel
+            deviceModel: Self.machineModel()
         )
 
         // deviceId를 저장하여 DetectionReporter에서 사용
@@ -518,7 +510,7 @@ public final class GuardSDK {
                     platform: "ios",
                     appVersion: appVersion,
                     osVersion: UIDevice.current.systemVersion,
-                    deviceModel: UIDevice.current.model,
+                    deviceModel: Self.machineModel(),
                     detections: events
                 )
             )
@@ -638,6 +630,18 @@ public final class GuardSDK {
             return .log
         }
         return .log
+    }
+
+    /// utsname().machine에서 디바이스 모델명을 반환한다 (예: "iPhone15,2").
+    /// UIDevice.current.model은 "iPhone"만 반환하므로 사용하지 않는다.
+    static func machineModel() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        return withUnsafePointer(to: &systemInfo.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                String(cString: $0)
+            }
+        }
     }
 
     /// SDK 내부 로그를 출력한다.
