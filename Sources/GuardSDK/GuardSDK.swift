@@ -17,7 +17,7 @@ import UIKit
 /// let config = GuardConfig.Builder(apiKey: "your-key", appId: "com.example.app")
 ///     .serverUrl("https://api.example.com")
 ///     .build()
-/// GuardSDK.shared.initialize(config: config, delegate: self)
+/// GuardSDK.shared.initialize(config: config, callback: self)
 /// GuardSDK.shared.startDetection()
 /// ```
 public final class GuardSDK {
@@ -37,16 +37,25 @@ public final class GuardSDK {
 
     // MARK: - 공개 프로퍼티
 
-    /// SDK 초기화 완료 여부 (스레드 안전)
+    /// SDK 로컬 초기화 완료 여부 (스레드 안전)
     private var _isInitialized: Bool = false
     public var isInitialized: Bool { sdkQueue.sync { _isInitialized } }
+
+    /// 서버 정책 수신 완료 여부 (스레드 안전)
+    private var _isReady: Bool = false
+    public var isReady: Bool { sdkQueue.sync { _isReady } }
+
+    /// 현재 적용된 정책 출처 (스레드 안전)
+    private var _policySource: PolicySource = .config
+    public var policySource: PolicySource { sdkQueue.sync { _policySource } }
 
     /// 주기적 탐지 실행 중 여부 (스레드 안전)
     private var _isDetecting: Bool = false
     public var isDetecting: Bool { sdkQueue.sync { _isDetecting } }
 
-    /// 탐지 결과를 전달받을 delegate (약한 참조)
-    public weak var delegate: DetectionDelegate?
+    /// 콜백 (약한 참조)
+    public weak var callback: GuardCallback?
+    private var didNotifyReady: Bool = false
 
     // MARK: - 내부 컴포넌트
 
@@ -78,29 +87,27 @@ public final class GuardSDK {
 
     /// SDK를 초기화한다 (탐지는 시작하지 않음).
     ///
-    /// 내부적으로 서버에서 세션 토큰과 정책을 수신한다.
-    /// 초기화 완료 후 startDetection()을 호출하여 탐지를 시작한다.
+    /// 내부적으로 서버에서 정책을 비동기로 수신한다.
+    /// 서버 정책 수신 완료 시 callback.onReady()가 호출된다.
+    /// 초기화 후 startDetection()을 호출하여 탐지를 시작한다.
     ///
     /// - Parameters:
-    ///   - config: SDK 설정 정보 (API 키, 앱 ID 등)
-    ///   - delegate: 탐지 결과를 전달받을 delegate (선택)
-    ///   - completion: 초기화 완료 시 메인 스레드에서 호출 (성공 여부)
-    public func initialize(config: GuardConfig, delegate: DetectionDelegate? = nil, completion: ((Bool) -> Void)? = nil) {
+    ///   - config: SDK 설정 정보 (API 키, 서버 URL 등)
+    ///   - callback: 초기화 완료, 탐지 결과, 에러를 수신하는 콜백 (선택)
+    public func initialize(config: GuardConfig, callback: GuardCallback? = nil) {
         sdkQueue.async { [weak self] in
             guard let self = self else {
-                DispatchQueue.main.async { completion?(false) }
                 return
             }
 
             // 이미 초기화된 경우 중복 방지
             guard !self._isInitialized else {
                 self.log(.warn, "[초기화] SDK가 이미 초기화되어 있습니다. stop() 후 다시 호출하세요.")
-                DispatchQueue.main.async { completion?(true) }
                 return
             }
 
             self.config = config
-            self.delegate = delegate
+            self.callback = callback
 
             // 1. 정책 캐시 초기화
             self.policyCache = PolicyCache()
@@ -131,17 +138,15 @@ public final class GuardSDK {
             self._isInitialized = true
             self.log(.info, "[초기화] SDK 초기화 완료 (apiKey: \(config.apiKey.prefix(8))..., 탐지기: \(engine.detectorCount)개)")
 
-            // 7. 완료 콜백 (메인 스레드)
-            DispatchQueue.main.async { completion?(true) }
-
-            // 8. 서버에서 정책 수신 (비동기)
+            // 7. 서버에서 정책 수신 (비동기, 완료 시 onReady 호출)
             self.fetchPolicyFromServer()
         }
     }
 
     /// [하위 호환] start()는 initialize()와 동일하게 동작한다.
-    public func start(config: GuardConfig, delegate: DetectionDelegate? = nil, completion: ((Bool) -> Void)? = nil) {
-        initialize(config: config, delegate: delegate, completion: completion)
+    @available(*, deprecated, renamed: "initialize(config:callback:)", message: "initialize(config:callback:)를 사용하세요.")
+    public func start(config: GuardConfig, callback: GuardCallback? = nil) {
+        initialize(config: config, callback: callback)
     }
 
     // MARK: - 공개 메서드: 탐지 제어
@@ -156,11 +161,15 @@ public final class GuardSDK {
 
             guard self._isInitialized else {
                 self.log(.warn, "[탐지] SDK가 초기화되지 않아 탐지를 시작할 수 없습니다.")
-                self.delegate?.guardSDK(
-                    self,
-                    didEncounterError: .initializationFailed("SDK가 초기화되지 않았습니다.")
-                )
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.callback?.onError(error: .initializationFailed("SDK가 초기화되지 않았습니다."))
+                }
                 return
+            }
+
+            if !self._isReady {
+                self.log(.warn, "[탐지] 서버 정책 수신 전 탐지 시작. \(self._policySource.rawValue) 정책으로 동작하며, 서버 정책 도착 시 자동 반영됩니다.")
             }
 
             guard !self._isDetecting else {
@@ -223,7 +232,7 @@ public final class GuardSDK {
     /// 즉시 보안 탐지를 1회 실행한다.
     ///
     /// initialize()로 초기화된 이후에만 동작한다.
-    /// 탐지 결과는 delegate를 통해 전달된다.
+    /// 탐지 결과는 callback을 통해 전달된다.
     public func runDetection() {
         sdkQueue.async { [weak self] in
             self?.performDetection()
@@ -263,7 +272,10 @@ public final class GuardSDK {
             self.config = nil
             self.currentDeviceId = nil
             self._isInitialized = false
+            self._isReady = false
             self._isDetecting = false
+            self._policySource = .config
+            self.didNotifyReady = false
 
             self.log(.info, "[초기화] SDK 정상 종료 완료")
         }
@@ -285,9 +297,12 @@ public final class GuardSDK {
             self.policyCache = nil
             self.config = nil
             self.currentDeviceId = nil
-            self.delegate = nil
+            self.callback = nil
             self._isInitialized = false
+            self._isReady = false
             self._isDetecting = false
+            self._policySource = .config
+            self.didNotifyReady = false
         }
     }
 
@@ -318,7 +333,7 @@ public final class GuardSDK {
 
     // MARK: - 탐지 실행 (내부)
 
-    /// 탐지를 1회 실행하고 결과를 delegate에 전달한다.
+    /// 탐지를 1회 실행하고 결과를 callback에 전달한다.
     private func performDetection() {
         guard self._isInitialized, let engine = self.policyEngine else {
             self.log(.warn, "[탐지] SDK가 초기화되지 않아 탐지를 실행할 수 없습니다.")
@@ -335,17 +350,17 @@ public final class GuardSDK {
             self.log(.warn, "[탐지] 위협 발견: \(result.type.rawValue) (신뢰도=\(result.confidence), 액션=\(result.action.rawValue))")
         }
 
-        // 개별 결과를 delegate에 전달 (메인 스레드)
+        // 개별 결과를 callback에 전달 (메인 스레드)
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
             for result in results where result.detected {
-                self.delegate?.guardSDK(self, didDetect: result)
+                self.callback?.onDetection(result: result)
             }
 
             // 배치 결과 및 최고 우선순위 액션 전달
             let highestAction = self.determineHighestAction(from: results)
-            self.delegate?.guardSDK(self, didCompleteBatch: results, action: highestAction)
+            self.callback?.onDetectionBatch(results: results, action: highestAction)
         }
 
         let highestAction = self.determineHighestAction(from: results)
@@ -436,29 +451,17 @@ public final class GuardSDK {
                 }
                 self.policyCache?.save(policyToCache)
 
-                // 성공 알림 (메인 스레드)
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 정책 수신 완료")
-                }
+                self.notifyReady(.server)
 
             case .error(_, let message):
                 self.log(.warn, "[서버] 초기화 실패: \(message) (오프라인 모드)")
                 self.logOfflineFallbackMode()
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(message) (오프라인 모드)")
-                    self.delegate?.guardSDK(self, didEncounterError: .networkError(NSError(domain: "GuardSDK", code: -1, userInfo: [NSLocalizedDescriptionKey: "서버 초기화 실패: \(message)"])))
-                }
+                self.callback?.onError(error: .networkError(NSError(domain: "GuardSDK", code: -1, userInfo: [NSLocalizedDescriptionKey: "서버 초기화 실패: \(message)"])))
 
             case .networkError(let error):
                 self.log(.warn, "[서버] 네트워크 연결 실패: \(error.localizedDescription) (오프라인 모드)")
                 self.logOfflineFallbackMode()
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    self.delegate?.guardSDK(self, didUpdateStatus: "서버 연결 실패: \(error.localizedDescription) (오프라인 모드)")
-                    self.delegate?.guardSDK(self, didEncounterError: .networkError(error))
-                }
+                self.callback?.onError(error: .networkError(error))
             }
         }
     }
@@ -467,8 +470,10 @@ public final class GuardSDK {
     private func logOfflineFallbackMode() {
         if policyCache?.load() != nil {
             log(.info, "[캐시] 오프라인 모드: 캐시된 정책으로 탐지를 계속합니다.")
+            notifyReady(.cached)
         } else {
             log(.info, "[캐시] 오프라인 모드: GuardConfig 기반 초기 정책으로 동작합니다.")
+            notifyReady(.config)
         }
     }
 
@@ -530,7 +535,7 @@ public final class GuardSDK {
     /// 녹화/미러링 상태 변경 시 호출된다.
     ///
     /// ScreenCaptureDetector의 옵저버가 감지하여 전달한다.
-    /// 상태를 서버에 리포트하고 delegate에 알린다.
+    /// 상태를 서버에 리포트하고 callback을 통해 알린다.
     ///
     /// - Parameter isCaptured: 현재 녹화/미러링 중 여부
     private func handleCaptureStateChanged(_ isCaptured: Bool) {
@@ -547,10 +552,11 @@ public final class GuardSDK {
             }
         }
 
-        // delegate에 상태 알림
+        // callback에 상태 알림
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.delegate?.guardSDK(self, didUpdateStatus: "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
+            // status log (didUpdateStatus 제거됨, onReady로 대체)
+                    self.log(.info, "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
         }
     }
 
@@ -568,7 +574,7 @@ public final class GuardSDK {
             Task { await reporter.addEventImmediate(event) }
         }
 
-        // 정책 action에 따른 동작 수행 및 delegate 알림
+        // 정책 action에 따른 동작 수행 및 callback 알림
         let result = DetectionResult(
             type: .screenCapture,
             detected: true,
@@ -577,8 +583,9 @@ public final class GuardSDK {
         )
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.delegate?.guardSDK(self, didDetect: result)
-            self.delegate?.guardSDK(self, didUpdateStatus: "스크린샷 촬영 감지")
+            self.callback?.onDetection(result: result)
+            // status log (didUpdateStatus 제거됨, onReady로 대체)
+                    self.log(.info, "스크린샷 촬영 감지")
         }
     }
 
@@ -641,6 +648,18 @@ public final class GuardSDK {
             $0.withMemoryRebound(to: CChar.self, capacity: 1) {
                 String(cString: $0)
             }
+        }
+    }
+
+    /// onReady 콜백을 1회만 호출한다.
+    private func notifyReady(_ source: PolicySource) {
+        guard !didNotifyReady, _isInitialized else { return }
+        didNotifyReady = true
+        _isReady = true
+        _policySource = source
+        log(.info, "[초기화] SDK 준비 완료 (policySource: \(source.rawValue))")
+        DispatchQueue.main.async { [weak self] in
+            self?.callback?.onReady(policySource: source)
         }
     }
 

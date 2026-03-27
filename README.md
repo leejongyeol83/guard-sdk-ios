@@ -33,20 +33,23 @@ let config = GuardConfig.Builder(apiKey: "pk_your_api_key", serverUrl: "https://
     .logLevel(.debug) // .none, .error, .warn, .info, .debug
     .build()
 
-// 2. 초기화
-GuardSDK.shared.initialize(config: config, delegate: self) { success in
-    if success {
-        // 3-A. 주기적 탐지
-        GuardSDK.shared.startDetection()
+// 2. 초기화 + 콜백
+GuardSDK.shared.initialize(config: config, callback: self)
 
-        // 3-B. 또는 1회 탐지
-        // GuardSDK.shared.runDetection()
+// 3-A. 주기적 탐지 (initialize 직후 호출 가능, 서버 정책 도착 시 자동 반영)
+GuardSDK.shared.startDetection()
+
+// 3-B. 또는 1회 탐지
+// GuardSDK.shared.runDetection()
+
+// 4. 콜백
+extension ViewController: GuardCallback {
+    func onReady(policySource: PolicySource) {
+        // 서버 정책 적용 완료 (또는 캐시/기본 정책 폴백)
+        // policySource: .server, .cached, .config
     }
-}
 
-// 4. Delegate
-extension ViewController: DetectionDelegate {
-    func guardSDK(_ sdk: GuardSDK, didDetect result: DetectionResult) {
+    func onDetection(result: DetectionResult) {
         switch result.action {
         case .block:
             // 앱 종료 또는 기능 제한
@@ -63,22 +66,29 @@ extension ViewController: DetectionDelegate {
         }
     }
 
-    func guardSDK(_ sdk: GuardSDK, didEncounterError error: SdkError) {
-        // 초기화 실패 처리
+    func onError(error: SdkError) {
+        // 에러 처리
     }
 }
 ```
+
+### 초기화 2단계
+
+1. **Phase 1 (로컬 초기화)**: `initialize()` 호출 → `isInitialized = true`. 탐지기 등록, 캐시 정책 적용. `startDetection()` 호출 가능.
+2. **Phase 2 (서버 정책)**: 서버에서 정책 수신 완료 → `isReady = true`. `onReady()` 콜백 호출. 서버 실패 시에도 캐시/기본 정책으로 폴백하여 `onReady()` 호출.
 
 ## API
 
 | Method | Description |
 |--------|-------------|
-| `GuardSDK.shared.initialize(config:delegate:completion:)` | SDK 초기화 (서버에서 정책/시그니처 수신) |
+| `GuardSDK.shared.initialize(config:callback:)` | SDK 초기화 + 서버 정책 수신 |
 | `GuardSDK.shared.startDetection()` | 주기적 탐지 시작 |
 | `GuardSDK.shared.stopDetection()` | 탐지 중지 |
 | `GuardSDK.shared.runDetection()` | 수동 1회 탐지 |
 | `GuardSDK.shared.stop()` | SDK 종료 및 리소스 해제 |
-| `GuardSDK.shared.isInitialized` | 초기화 완료 여부 |
+| `GuardSDK.shared.isInitialized` | 로컬 초기화 완료 여부 |
+| `GuardSDK.shared.isReady` | 서버 정책 적용 완료 여부 |
+| `GuardSDK.shared.policySource` | 현재 적용된 정책 출처 (.config/.cached/.server) |
 | `GuardSDK.shared.isDetecting` | 탐지 실행 중 여부 |
 
 ## Detection Types (9종)
