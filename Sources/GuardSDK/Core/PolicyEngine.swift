@@ -149,6 +149,12 @@ public class PolicyEngine {
         return actionMap[type] ?? .log
     }
 
+    /// 특정 탐지 유형이 정책에서 활성화되어 있는지 확인한다.
+    public func isDetectionEnabled(for type: DetectionType) -> Bool {
+        guard let policy = currentPolicy else { return false }
+        return isDetectionEnabled(for: type, policy: policy)
+    }
+
     // MARK: - 탐지기 접근
 
     /// 특정 타입의 탐지기를 반환한다.

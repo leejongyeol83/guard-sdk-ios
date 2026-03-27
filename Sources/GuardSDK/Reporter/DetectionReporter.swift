@@ -304,12 +304,6 @@ class DetectionReporter {
 
     /// 디바이스 모델명을 반환한다 (예: "iPhone15,2")
     private static func deviceModel() -> String {
-        var systemInfo = utsname()
-        uname(&systemInfo)
-        return withUnsafePointer(to: &systemInfo.machine) {
-            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
-                String(cString: $0)
-            }
-        }
+        return GuardSDK.machineModel()
     }
 }

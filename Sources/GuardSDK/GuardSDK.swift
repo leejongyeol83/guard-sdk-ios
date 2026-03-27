@@ -134,11 +134,19 @@ public final class GuardSDK {
             // 5. API 클라이언트 초기화
             self.apiClient = SdkApiClient(serverUrl: config.serverUrl, apiKey: config.apiKey, config: config)
 
-            // 6. 초기화 완료 표시
+            // 6. DetectionReporter 초기화 (재시도 + 오프라인 저장)
+            let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+            self.currentDeviceId = deviceId
+            self.reporter = DetectionReporter(
+                apiClient: self.apiClient!,
+                deviceId: deviceId
+            )
+
+            // 7. 초기화 완료 표시
             self._isInitialized = true
             self.log(.info, "[초기화] SDK 초기화 완료 (apiKey: \(config.apiKey.prefix(8))..., 탐지기: \(engine.detectorCount)개)")
 
-            // 7. 서버에서 정책 수신 (비동기, 완료 시 onReady 호출)
+            // 8. 서버에서 정책 수신 (비동기, 완료 시 onReady 호출)
             self.fetchPolicyFromServer()
         }
     }
@@ -177,6 +185,7 @@ public final class GuardSDK {
                 return
             }
 
+            self._isDetecting = true
             let interval = self.config?.detectionInterval ?? 60
 
             // 메인 스레드에서 Timer 생성 (RunLoop 필요)
@@ -188,7 +197,6 @@ public final class GuardSDK {
                 self.detectionTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
                     self?.sdkQueue.async { self?.performDetection() }
                 }
-                self._isDetecting = true
                 self.log(.info, "[탐지] 주기적 탐지 시작 (주기: \(interval)초)")
 
                 // 주기적 탐지 시 리포터 자동 플러시 타이머도 시작
@@ -213,16 +221,18 @@ public final class GuardSDK {
     /// 탐지만 중지하고 SDK 초기화 상태는 유지한다.
     /// 다시 startDetection()으로 재개할 수 있다.
     public func stopDetection() {
-        DispatchQueue.main.async { [weak self] in
+        sdkQueue.async { [weak self] in
             guard let self = self else { return }
-
-            self.detectionTimer?.invalidate()
-            self.detectionTimer = nil
             self._isDetecting = false
 
-            // 화면 캡처 옵저버 중지
-            if let screenDetector = self.policyEngine?.getDetector(for: .screenCapture) as? ScreenCaptureDetector {
-                screenDetector.stopObserving()
+            DispatchQueue.main.async {
+                self.detectionTimer?.invalidate()
+                self.detectionTimer = nil
+
+                // 화면 캡처 옵저버 중지
+                if let screenDetector = self.policyEngine?.getDetector(for: .screenCapture) as? ScreenCaptureDetector {
+                    screenDetector.stopObserving()
+                }
             }
 
             self.log(.info, "[탐지] 주기적 탐지 중지됨 (SDK 초기화 상태 유지)")
@@ -377,7 +387,7 @@ public final class GuardSDK {
     private func fetchPolicyFromServer() {
         guard let client = apiClient else { return }
 
-        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        let deviceId = currentDeviceId ?? UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
 
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
 
@@ -403,12 +413,6 @@ public final class GuardSDK {
             case .success(let response):
                 let initData = response.data
                 self.log(.info, "[서버] 초기화 성공")
-
-                // DetectionReporter 생성 (배치 전송 + 재시도 + 오프라인 저장)
-                self.reporter = DetectionReporter(
-                    apiClient: client,
-                    deviceId: deviceId
-                )
 
                 // 서버 정책(PolicyData)을 SDK SecurityPolicy로 변환 및 적용
                 let p = initData.policy
@@ -541,8 +545,10 @@ public final class GuardSDK {
     private func handleCaptureStateChanged(_ isCaptured: Bool) {
         log(.info, "화면 캡처 상태 변경: isCaptured=\(isCaptured)")
 
+        // 정책에서 화면 캡처 탐지가 꺼져있으면 무시
+        guard policyEngine?.isDetectionEnabled(for: .screenCapture) == true else { return }
+
         if isCaptured {
-            // 녹화 시작 → 즉시 서버에 리포트
             let event = DetectionEventModel(
                 type: "screen_capture",
                 details: ["event": "recording_started"]
@@ -552,11 +558,9 @@ public final class GuardSDK {
             }
         }
 
-        // callback에 상태 알림
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            // status log (didUpdateStatus 제거됨, onReady로 대체)
-                    self.log(.info, "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
+            self.log(.info, "화면 캡처 상태: \(isCaptured ? "녹화 중" : "정상")")
         }
     }
 
@@ -566,6 +570,9 @@ public final class GuardSDK {
     private func handleScreenshotTaken() {
         log(.warn, "[화면보호] 스크린샷 촬영 감지 (사후)")
 
+        // 정책에서 화면 캡처 탐지가 꺼져있으면 무시
+        guard policyEngine?.isDetectionEnabled(for: .screenCapture) == true else { return }
+
         let event = DetectionEventModel(
             type: "screen_capture",
             details: ["event": "screenshot_taken"]
@@ -574,7 +581,6 @@ public final class GuardSDK {
             Task { await reporter.addEventImmediate(event) }
         }
 
-        // 정책 action에 따른 동작 수행 및 callback 알림
         let result = DetectionResult(
             type: .screenCapture,
             detected: true,
@@ -584,8 +590,7 @@ public final class GuardSDK {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.callback?.onDetection(result: result)
-            // status log (didUpdateStatus 제거됨, onReady로 대체)
-                    self.log(.info, "스크린샷 촬영 감지")
+            self.log(.info, "스크린샷 촬영 감지")
         }
     }
 
@@ -651,15 +656,18 @@ public final class GuardSDK {
         }
     }
 
-    /// onReady 콜백을 1회만 호출한다.
+    /// onReady 콜백을 1회만 호출한다 (스레드 안전).
     private func notifyReady(_ source: PolicySource) {
-        guard !didNotifyReady, _isInitialized else { return }
-        didNotifyReady = true
-        _isReady = true
-        _policySource = source
-        log(.info, "[초기화] SDK 준비 완료 (policySource: \(source.rawValue))")
-        DispatchQueue.main.async { [weak self] in
-            self?.callback?.onReady(policySource: source)
+        sdkQueue.async { [weak self] in
+            guard let self = self else { return }
+            guard !self.didNotifyReady, self._isInitialized else { return }
+            self.didNotifyReady = true
+            self._isReady = true
+            self._policySource = source
+            self.log(.info, "[초기화] SDK 준비 완료 (policySource: \(source.rawValue))")
+            DispatchQueue.main.async { [weak self] in
+                self?.callback?.onReady(policySource: source)
+            }
         }
     }
 

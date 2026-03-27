@@ -51,7 +51,7 @@ public enum DetectAction: String, Codable {
     /// 앱 종료 또는 기능 차단 - 가장 강력한 대응
     case block
 
-    /// delegate 호출하여 호스트 앱에서 UI 처리 (경고 팝업 등)
+    /// callback 호출하여 호스트 앱에서 UI 처리 (경고 팝업 등)
     case warn
 
     /// 서버에 리포팅만 수행하고 앱 동작에는 영향 없음

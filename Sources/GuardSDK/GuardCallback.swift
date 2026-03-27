@@ -67,17 +67,6 @@ public protocol GuardCallback: AnyObject {
     func onError(error: SdkError)
 }
 
-// MARK: - 기본 구현 (선택적 메서드)
-
-public extension GuardCallback {
-
-    func onReady(policySource: PolicySource) {}
-
-    func onDetectionBatch(results: [DetectionResult], action: DetectAction) {}
-
-    func onError(error: SdkError) {}
-}
-
 // MARK: - SDK 오류 타입
 
 /// SDK 내부에서 발생할 수 있는 오류를 정의한다.
